@@ -1,0 +1,97 @@
+{
+  "id": "coreOsWhatsapp01",
+  "name": "WhatsApp para o cérebro",
+  "active": false,
+  "nodes": [
+    {
+      "id": "5b0c3c1e-6a1f-4f5e-9d61-0a7c2e9b1001",
+      "name": "Mensagem da Evolution",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "7d1e9f3a-2b4c-4e6f-8a1b-3c5d7e9f2001",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "core-os-whatsapp",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "5b0c3c1e-6a1f-4f5e-9d61-0a7c2e9b1002",
+      "name": "Filtrar e montar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Só conversas individuais seguem para o painel; quem pode dar ordens é decidido lá.\nconst INVISIVEL = '\\u2063';\nconst NAO_E_MENSAGEM = /reaction|protocol|senderkey|edited|poll|sticker/i;\nconst saida = [];\nfor (const item of $input.all()) {\n  const corpo = item.json.body ?? item.json;\n  const dados = corpo.data ?? {};\n  const chave = dados.key ?? {};\n  const remoto = String(chave.remoteJid ?? '');\n  if (!remoto || /@(g\\.us|broadcast|newsletter)$/.test(remoto)) continue;\n  const chat = [chave.remoteJidAlt, chave.senderPn, chave.remoteJid]\n    .map((v) => String(v ?? ''))\n    .find((v) => v.endsWith('@s.whatsapp.net'));\n  if (!chat) continue;\n  const m = dados.message ?? {};\n  const texto = m.conversation || m.extendedTextMessage?.text || '';\n  const legenda = m.imageMessage?.caption || m.documentMessage?.caption || m.videoMessage?.caption || '';\n  // resposta do próprio cérebro: sem este descarte o chat \"Você\" entraria em laço\n  if (texto.startsWith(INVISIVEL) || legenda.startsWith(INVISIVEL)) continue;\n  const tipoBruto = String(dados.messageType ?? '');\n  const tipo = texto ? 'texto' : /audio/i.test(tipoBruto) ? 'audio' : 'outro';\n  if (tipo === 'outro' && NAO_E_MENSAGEM.test(tipoBruto)) continue;\n  saida.push({ json: { texto, tipo, deMim: Boolean(chave.fromMe), chat, eu: String(corpo.sender ?? '') } });\n}\nreturn saida;\n"
+      }
+    },
+    {
+      "id": "5b0c3c1e-6a1f-4f5e-9d61-0a7c2e9b1003",
+      "name": "Entregar ao painel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CORE_OS_PONTE }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-core-os-token",
+              "value": "={{ $env.CORE_OS_HOOK_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ texto: $json.texto, tipo: $json.tipo, deMim: $json.deMim, chat: $json.chat, eu: $json.eu }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Mensagem da Evolution": {
+      "main": [
+        [
+          {
+            "node": "Filtrar e montar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar e montar": {
+      "main": [
+        [
+          {
+            "node": "Entregar ao painel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "tags": []
+}

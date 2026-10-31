@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cérebro</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
+  <link rel="stylesheet" href="/app.css">
+  <script>
+    // tema antes de pintar, para não piscar: a escolha manual fica no navegador
+    try { const t = JSON.parse(localStorage.getItem('tema')); if (t === 'claro' || t === 'escuro') document.documentElement.dataset.tema = t; } catch {}
+  </script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div id="login" class="login" hidden>
+    <form class="login-caixa" id="login-form">
+      <div class="marca"><span class="marca-ponto" aria-hidden="true"></span>Cérebro</div>
+      <p class="login-frase">Seu segundo cérebro, com agentes de IA trabalhando nas suas notas.</p>
+      <label class="rotulo" for="login-senha">Senha</label>
+      <input id="login-senha" class="campo" type="password" autocomplete="current-password" required>
+      <p id="login-erro" class="login-erro" role="alert" hidden></p>
+      <button class="bt primario" type="submit">Entrar</button>
+    </form>
+  </div>
+
+  <div id="painel" class="painel" hidden>
+    <header class="topo">
+      <button type="button" class="bt-icone lateral-alternar" id="lateral-alternar" aria-label="Mostrar ou esconder a lateral" title="Mostrar ou esconder a lateral"></button>
+      <div class="guias" id="guias" role="tablist" aria-label="Guias abertas"></div>
+      <button type="button" class="bt-icone guia-nova" id="guia-nova" aria-label="Nova página" title="Nova página"></button>
+    </header>
+    <nav class="caminho" aria-label="Navegação">
+      <button type="button" class="bt-icone" id="voltar" aria-label="Voltar" title="Voltar"></button>
+      <button type="button" class="bt-icone" id="avancar" aria-label="Avançar" title="Avançar"></button>
+      <span class="caminho-texto" id="caminho-texto"></span>
+      <button type="button" class="bt-icone estrela" id="estrela" aria-label="Favoritar" title="Favoritar" aria-pressed="false" hidden></button>
+    </nav>
+    <aside class="lateral" id="lateral" aria-label="Lateral"></aside>
+    <main class="area" id="area"></main>
+  </div>
+
+  <div id="visor" class="visor" hidden role="dialog" aria-modal="true" aria-label="Visor de arquivos"></div>
+  <div id="envio" class="envio" hidden role="status"></div>
+  <div id="aviso" class="aviso" hidden role="status"></div>
+</body>
+</html>
