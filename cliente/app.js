@@ -2,6 +2,8 @@
 import { $, api, ler, guardar, ouvir, icone } from './comum.js';
 import * as shell from './shell.js';
 import * as lateral from './lateral.js';
+import * as dock from './dock.js';
+import * as atividade from './atividade.js';
 import './grafo.js';
 import './editor.js';
 import './banco.js';
@@ -61,6 +63,8 @@ function entrarNoPainel() {
   });
   lateral.iniciar({ alternarTema, pintarBotaoTema, sair });
   shell.iniciar();
+  dock.iniciar();
+  atividade.iniciar();
 }
 
 $('#login-form').addEventListener('submit', async (e) => {

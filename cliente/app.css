@@ -446,3 +446,92 @@ div.bloco-texto:empty:focus::before { content: attr(data-ph); color: var(--texto
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 .config-secao > .bt, .config-secao > .linha-botoes { justify-self: start; }
+
+/* ======================================================================
+   Liquid glass: vidro fosco que desfoca e reflete o que está atrás.
+   A base sólida acima continua valendo onde o navegador não tem backdrop-filter.
+   ====================================================================== */
+:root {
+  --vidro-borda: rgb(255 255 255 / .55); --vidro-sombra-interna: rgb(255 255 255 / .7); --vidro-sombra-baixo: rgb(0 0 0 / .07);
+  --vidro-r: 20px; --desfoque: blur(22px) saturate(180%);
+}
+:root[data-tema="escuro"] { --vidro-borda: rgb(255 255 255 / .13); --vidro-sombra-interna: rgb(255 255 255 / .16); --vidro-sombra-baixo: rgb(0 0 0 / .35); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) { --vidro-borda: rgb(255 255 255 / .13); --vidro-sombra-interna: rgb(255 255 255 / .16); --vidro-sombra-baixo: rgb(0 0 0 / .35); }
+}
+
+/* dock das Funções (embaixo, no meio) e cartão de atividade do WhatsApp (canto direito): base sólida */
+.dock { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 35; display: flex; gap: 6px; padding: 8px; border-radius: 26px; background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); max-width: calc(100vw - 20px); }
+.dock-botao { display: grid; justify-items: center; align-content: center; gap: 2px; width: 66px; height: 58px; border-radius: 18px; color: var(--texto-2); font-size: 10.5px; transition: transform .18s ease, background .18s ease; }
+.dock-botao svg.i { width: 24px; height: 24px; }
+.dock-botao:hover { transform: translateY(-4px) scale(1.07); background: var(--hover); color: var(--texto); }
+.dock-botao.ativo { background: var(--selecao); color: var(--acento); }
+.atividade { position: fixed; top: calc(var(--topo) + var(--barra) + 12px); right: 14px; z-index: 25; width: min(300px, calc(100vw - 28px)); border-radius: var(--vidro-r); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); overflow: hidden; }
+.atividade-topo { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; text-align: left; }
+.atividade-topo b { flex: 1; font-size: 13px; }
+.atividade-topo svg.i { width: 16px; height: 16px; color: var(--texto-3); }
+.atividade-conta { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--verde); color: #fff; font-size: 11px; line-height: 20px; text-align: center; }
+.atividade-corpo { padding: 0 6px 8px; max-height: 46vh; overflow-y: auto; }
+.atividade-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.atividade-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 12px; text-align: left; }
+.atividade-item:hover { background: var(--hover); }
+.atividade-texto { display: grid; min-width: 0; }
+.atividade-texto b { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atividade-texto small { font-size: 11.5px; color: var(--texto-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atividade .vazio { margin: 4px 6px 6px; font-size: 12.5px; }
+.atividade.fechada { width: auto; border-radius: 22px; }
+.atividade.fechada .atividade-corpo, .atividade.fechada .atividade-topo b, .atividade.fechada .atividade-topo > svg.i { display: none; }
+.atividade.fechada .atividade-topo { padding: 8px; }
+.editor, .leitura, .banco, .config { padding-bottom: 110px; }
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  body {
+    background-color: var(--fundo);
+    background-image:
+      radial-gradient(60vmax 50vmax at 8% 12%, color-mix(in srgb, var(--acento) 26%, transparent), transparent 70%),
+      radial-gradient(55vmax 45vmax at 92% 20%, color-mix(in srgb, var(--laranja) 20%, transparent), transparent 70%),
+      radial-gradient(60vmax 50vmax at 70% 96%, color-mix(in srgb, var(--verde) 18%, transparent), transparent 70%);
+    background-attachment: fixed;
+  }
+  .palco { background-color: transparent; }
+  .topo, .caminho, .lateral, .dock, .atividade, .card, .config-secao, .menu, .login-caixa, .envio, .coluna, .banco-grade {
+    background-color: color-mix(in srgb, var(--painel) 52%, transparent);
+    background-image: linear-gradient(135deg, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 38%);
+    -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque);
+    border: 1px solid var(--vidro-borda);
+    box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), inset 0 -1px 0 rgb(255 255 255 / .05), 0 10px 30px var(--vidro-sombra-baixo);
+  }
+  :root[data-tema="escuro"] :is(.topo, .caminho, .lateral, .dock, .atividade, .card, .config-secao, .menu, .login-caixa, .envio, .coluna, .banco-grade) { background-image: linear-gradient(135deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 38%); }
+  .topo, .caminho { border-width: 0 0 1px 0; border-radius: 0; box-shadow: inset 0 -1px 0 var(--vidro-borda); }
+  .caminho { background-color: color-mix(in srgb, var(--painel) 34%, transparent); }
+  .lateral { top: calc(var(--topo) + var(--barra) + 8px); left: 10px; bottom: 10px; width: calc(var(--lateral) - 10px); border-radius: var(--vidro-r); overflow: hidden; }
+  body:not(.sem-lateral) .area { left: calc(var(--lateral) + 4px); }
+  .dock { border-radius: 28px; background-color: color-mix(in srgb, var(--painel) 46%, transparent); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 14px 40px var(--vidro-sombra-baixo); }
+  .dock-botao:hover { background: color-mix(in srgb, var(--texto) 9%, transparent); }
+  .dock-botao.ativo { background: color-mix(in srgb, var(--acento) 22%, transparent); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna); }
+  .guia.ativa { background: color-mix(in srgb, var(--card) 55%, transparent); -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna); }
+  .bt:not(.primario), .campo { background-color: color-mix(in srgb, var(--card) 50%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-color: var(--vidro-borda); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna); }
+  .bt.primario { box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), 0 6px 16px color-mix(in srgb, var(--acento) 35%, transparent); }
+  .aviso { background-color: color-mix(in srgb, var(--texto) 78%, transparent); -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque); }
+  .visor { background: rgb(10 10 14 / .55); -webkit-backdrop-filter: blur(26px) saturate(160%); backdrop-filter: blur(26px) saturate(160%); }
+  .grafo-zoom-btn { background-color: color-mix(in srgb, var(--painel) 50%, transparent); -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque); border-color: var(--vidro-borda); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 6px 18px var(--vidro-sombra-baixo); }
+}
+
+@media (max-width: 720px) {
+  .dock { bottom: 10px; gap: 2px; padding: 6px; border-radius: 24px; }
+  .dock-botao { width: 54px; height: 50px; }
+  .dock-botao span { display: none; }
+  .atividade { right: 10px; top: calc(var(--topo) + var(--barra) + 8px); }
+  body:not(.sem-lateral) .area { left: 0; }
+  .lateral { left: 8px; width: calc(var(--lateral) - 8px); bottom: 80px; }
+}
+@media (prefers-reduced-motion: reduce) { .dock-botao, .dock-botao:hover { transition: none; transform: none; } }
+@media (prefers-reduced-transparency: reduce) {
+  :root { --desfoque: none; }
+  .topo, .caminho, .lateral, .dock, .atividade, .card, .config-secao, .menu, .login-caixa, .envio, .coluna { background-color: var(--painel) !important; background-image: none !important; }
+}
+
+/* o cartão de atividade fica à direita: em telas largas as páginas desviam dele */
+@media (min-width: 1100px) {
+  body:not(.atividade-fechada) :is(.editor, .leitura, .banco, .config) { padding-right: 330px; }
+}

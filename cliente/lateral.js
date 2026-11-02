@@ -198,7 +198,7 @@ function pintarFavoritos() {
 const prefsFuncoes = () => ler('funcoesPrefs', { ordem: [], ocultos: [], fixos: [] });
 function pintarFuncoes() {
   const prefs = prefsFuncoes();
-  const salvar = (p) => { guardar('funcoesPrefs', p); pintarFuncoes(); };
+  const salvar = (p) => { guardar('funcoesPrefs', p); pintarFuncoes(); emitir('funcoes-mudou'); };
   const visiveis = aplicarPrefs(FUNCOES, prefs);
   const mover = (i, d) => {
     const ids = visiveis.map((f) => f.id);
