@@ -449,60 +449,65 @@ div.bloco-texto:empty:focus::before { content: attr(data-ph); color: var(--texto
 
 /* ======================================================================
    Liquid glass só na lateral, nos botões e nas guias (o fundo continua liso).
+   Vidro escuro com brilho nas bordas e halo no item ativo; cantos como no restante do painel.
    A base sólida acima continua valendo onde o navegador não tem backdrop-filter.
    ====================================================================== */
 :root {
   --vidro-borda: rgb(255 255 255 / .6); --vidro-sombra-interna: rgb(255 255 255 / .75); --vidro-sombra-baixo: rgb(0 0 0 / .08);
-  --vidro-r: 20px; --desfoque: blur(22px) saturate(180%);
+  --brilho: color-mix(in srgb, var(--acento) 55%, transparent); --halo: color-mix(in srgb, var(--acento) 30%, transparent);
+  --desfoque: blur(22px) saturate(180%);
 }
-:root[data-tema="escuro"] { --vidro-borda: rgb(255 255 255 / .14); --vidro-sombra-interna: rgb(255 255 255 / .18); --vidro-sombra-baixo: rgb(0 0 0 / .35); }
+:root[data-tema="escuro"] { --vidro-borda: rgb(255 255 255 / .16); --vidro-sombra-interna: rgb(255 255 255 / .2); --vidro-sombra-baixo: rgb(0 0 0 / .4); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) { --vidro-borda: rgb(255 255 255 / .14); --vidro-sombra-interna: rgb(255 255 255 / .18); --vidro-sombra-baixo: rgb(0 0 0 / .35); }
+  :root:not([data-tema="claro"]) { --vidro-borda: rgb(255 255 255 / .16); --vidro-sombra-interna: rgb(255 255 255 / .2); --vidro-sombra-baixo: rgb(0 0 0 / .4); }
 }
 
 /* dock das Funções (embaixo, no meio): base sólida */
-.dock { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 35; display: flex; gap: 6px; padding: 8px; border-radius: 26px; background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); max-width: calc(100vw - 20px); }
-.dock-botao { display: grid; justify-items: center; align-content: center; gap: 2px; width: 66px; height: 58px; border-radius: 18px; color: var(--texto-2); font-size: 10.5px; transition: transform .18s ease, background .18s ease; }
-.dock-botao svg.i { width: 24px; height: 24px; }
-.dock-botao:hover { transform: translateY(-4px) scale(1.07); background: var(--hover); color: var(--texto); }
+.dock { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 35; display: flex; gap: 4px; padding: 6px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); max-width: calc(100vw - 20px); }
+.dock-botao { display: grid; justify-items: center; align-content: center; gap: 2px; width: 66px; height: 56px; border-radius: 8px; color: var(--texto-2); font-size: 10.5px; transition: background .18s ease, box-shadow .18s ease; }
+.dock-botao svg.i { width: 22px; height: 22px; }
+.dock-botao:hover { background: var(--hover); color: var(--texto); }
 .dock-botao.ativo { background: var(--selecao); color: var(--acento); }
-.editor, .leitura, .banco, .config { padding-bottom: 110px; }
+.editor, .leitura, .banco, .config { padding-bottom: 100px; }
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   .lateral, .dock {
-    background-color: color-mix(in srgb, var(--painel) 50%, transparent);
-    background-image: linear-gradient(135deg, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 40%);
+    background-color: color-mix(in srgb, var(--acento) 7%, color-mix(in srgb, var(--painel) 52%, transparent));
+    background-image: linear-gradient(150deg, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 42%);
     -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque);
-    border: 1px solid var(--vidro-borda);
-    box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), inset 0 -1px 0 rgb(255 255 255 / .05), 0 10px 30px var(--vidro-sombra-baixo);
+    border-color: var(--vidro-borda);
+    box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 10px 30px var(--vidro-sombra-baixo);
   }
-  :root[data-tema="escuro"] :is(.lateral, .dock) { background-image: linear-gradient(135deg, rgb(255 255 255 / .09), rgb(255 255 255 / 0) 40%); }
-  .lateral { top: calc(var(--topo) + var(--barra) + 8px); left: 10px; bottom: 10px; width: calc(var(--lateral) - 10px); border-radius: var(--vidro-r); overflow: hidden; }
-  body:not(.sem-lateral) .area { left: calc(var(--lateral) + 4px); }
-  .dock { border-radius: 28px; }
-  .dock-botao:hover { background: color-mix(in srgb, var(--texto) 9%, transparent); }
-  .dock-botao.ativo { background: color-mix(in srgb, var(--acento) 22%, transparent); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna); }
+  :root[data-tema="escuro"] :is(.lateral, .dock) { background-image: linear-gradient(150deg, rgb(255 255 255 / .1), rgb(255 255 255 / 0) 42%); }
+  /* item ativo com contorno e halo luminosos */
+  .lateral-abas [role="tab"][aria-selected="true"], .no.ativo, .dock-botao.ativo {
+    background-color: color-mix(in srgb, var(--acento) 20%, transparent); color: var(--acento);
+    box-shadow: inset 0 0 0 1px var(--brilho), 0 0 16px var(--halo), inset 0 1px 0 var(--vidro-sombra-interna);
+  }
+  .dock-botao:hover, .no:hover, .funcao:hover { background-color: color-mix(in srgb, var(--texto) 8%, transparent); }
   .guia { border: 1px solid transparent; }
   .guia.ativa, .guia:hover {
     background-color: color-mix(in srgb, var(--card) 55%, transparent); border-color: var(--vidro-borda);
     -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna);
   }
+  .guia.ativa { box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 0 14px var(--halo); }
   .bt:not(.primario), .bt-icone, .campo {
-    background-color: color-mix(in srgb, var(--card) 50%, transparent); border-color: var(--vidro-borda);
+    background-color: color-mix(in srgb, var(--card) 48%, transparent);
+    background-image: linear-gradient(150deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%);
+    border-color: var(--vidro-borda);
     -webkit-backdrop-filter: blur(12px) saturate(160%); backdrop-filter: blur(12px) saturate(160%); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna);
   }
-  .bt.primario { box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), 0 6px 16px color-mix(in srgb, var(--acento) 35%, transparent); }
+  .bt.primario { box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), 0 0 18px var(--halo); }
   .grafo-zoom-btn { background-color: color-mix(in srgb, var(--painel) 50%, transparent); -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque); border-color: var(--vidro-borda); box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 6px 18px var(--vidro-sombra-baixo); }
 }
 
 @media (max-width: 720px) {
-  .dock { bottom: 10px; gap: 2px; padding: 6px; border-radius: 24px; }
-  .dock-botao { width: 54px; height: 50px; }
+  .dock { bottom: 10px; }
+  .dock-botao { width: 52px; height: 48px; }
   .dock-botao span { display: none; }
-  body:not(.sem-lateral) .area { left: 0; }
-  .lateral { left: 8px; width: calc(var(--lateral) - 8px); bottom: 80px; }
+  body:not(.sem-lateral) .dock { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .dock-botao, .dock-botao:hover { transition: none; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dock-botao { transition: none; } }
 @media (prefers-reduced-transparency: reduce) {
   :root { --desfoque: none; }
   .lateral, .dock { background-color: var(--painel) !important; background-image: none !important; }
