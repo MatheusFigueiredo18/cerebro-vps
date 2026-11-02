@@ -44,11 +44,20 @@ function entrarNoPainel() {
   $('#painel').hidden = false;
   if (montado) return;
   montado = true;
-  document.body.classList.toggle('sem-lateral', ler('lateralFechada', false));
+  // No celular a lateral começa fechada e fica por cima do conteúdo (ver o CSS); no computador, aberta.
+  const estreita = () => window.matchMedia('(max-width: 720px)').matches;
+  document.body.classList.toggle('sem-lateral', ler('lateralFechada', estreita()));
   $('#lateral-alternar').addEventListener('click', () => {
     const fechada = document.body.classList.toggle('sem-lateral');
     guardar('lateralFechada', fechada);
     window.dispatchEvent(new Event('resize'));
+  });
+  // Escolheu uma guia no celular: a lateral se recolhe para não cobrir a página (sem gravar essa escolha).
+  ouvir('guia-ativa', () => {
+    if (estreita() && !document.body.classList.contains('sem-lateral')) {
+      document.body.classList.add('sem-lateral');
+      window.dispatchEvent(new Event('resize'));
+    }
   });
   lateral.iniciar({ alternarTema, pintarBotaoTema, sair });
   shell.iniciar();

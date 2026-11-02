@@ -1,7 +1,8 @@
 // Função Conversas: canvas com cards arrastáveis e zoom (terminal, subagentes, mídias), terminal xterm por WebSocket,
 // lista de conversas à direita, "comece aqui", seletor de motor e o histórico das conversas do WhatsApp.
-import { el, api, icone, botaoIcone, selo, ler, guardar, emitir, avisar, hora, botaoConfirmar } from './comum.js';
+import { el, api, icone, botaoIcone, logo, ler, guardar, emitir, avisar, hora, botaoConfirmar } from './comum.js';
 import { lerNota, nomeBase, tipoArquivo } from './formatos.js';
+import { chaveDoMotor } from './marcas.js';
 import { zoomEm, enquadrar, layoutFilhos } from './camera.js';
 import { renderizar, urlArquivo } from './markdown.js';
 import * as shell from './shell.js';
@@ -330,9 +331,9 @@ function pintarLista() {
     const status = c.trabalhando ? 'trabalhando' : c.ativo ? 'ativo' : 'inativo';
     const linha = el('button', { type: 'button', class: 'conversa-linha', dados: { foco: `c:${c.id}` }, 'aria-current': c.id === ativa ? 'true' : null, onclick: () => { if (c.id !== ativa) trocar(c.id); } },
       el('span', { class: `ponto-status ${status}`, title: { trabalhando: 'Trabalhando', ativo: 'Ativa', inativo: 'Inativa' }[status] }),
-      c.origem === 'whatsapp' ? el('span', { class: 'selo-whats', title: 'Veio do WhatsApp' }, icone('whatsapp')) : null,
+      c.origem === 'whatsapp' ? el('span', { class: 'selo-whats', title: 'Veio do WhatsApp' }, logo('whatsapp', 'WhatsApp', 'mini')) : null,
       el('span', { class: 'conversa-titulo' }, c.titulo),
-      selo(c.motorNome, 'motor'),
+      logo(chaveDoMotor(c.motorNome), c.motorNome, 'motor'),
       nota.checklist.length ? el('small', { class: 'progresso' }, `${feitos}/${nota.checklist.length}`) : null);
     const item = el('li', { class: `conversa${c.id === ativa ? ' ativa' : ''}` }, linha);
     if (c.id === ativa) {
@@ -404,7 +405,7 @@ async function abrirSeletor() {
       try { await api('/api/config/motores', { metodo: 'POST', corpo: { padrao: id } }); } catch { /* segue com o motor pedido */ }
       novaConversa({ motor: id });
     },
-  }, selo(x.nome, 'motor grande'), el('span', {}, el('b', {}, x.nome), el('small', {}, { claude: 'Anthropic', codex: 'OpenAI', antigravity: 'Google' }[id] ?? '')),
+  }, logo(id, x.nome, 'motor grande'), el('span', {}, el('b', {}, x.nome), el('small', {}, { claude: 'Anthropic', codex: 'OpenAI', antigravity: 'Google' }[id] ?? '')),
   el('span', { class: `selo ${x.instalado ? (id === m.padrao ? 'pronto' : '') : 'pausado'}` }, x.instalado ? (id === m.padrao ? 'último usado' : 'pronto') : 'instalar')));
   caixa.lastChild.replaceWith(el('div', { class: 'motor-opcoes' }, opcoes));
   caixa.querySelector('.motor-opcao')?.focus();

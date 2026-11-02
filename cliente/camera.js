@@ -11,6 +11,20 @@ export function zoomEm(cam, px, py, fator, min, max) {
   return { x: px - mx * z, y: py - my * z, z };
 }
 
+// Pinça de dois dedos: parte da câmera de quando os dedos tocaram (a0, b0) e dos dedos agora (a1, b1).
+// O zoom segue a razão entre as distâncias e o ponto do mundo que estava entre os dedos acompanha o novo centro,
+// então o mesmo gesto também arrasta o canvas.
+export function pinca(cam, a0, b0, a1, b1, min, max) {
+  const d0 = Math.hypot(b0.x - a0.x, b0.y - a0.y);
+  if (d0 < 1) return cam;
+  const z = limitar(cam.z * (Math.hypot(b1.x - a1.x, b1.y - a1.y) / d0), min, max);
+  const c0 = { x: (a0.x + b0.x) / 2, y: (a0.y + b0.y) / 2 };
+  const c1 = { x: (a1.x + b1.x) / 2, y: (a1.y + b1.y) / 2 };
+  const mx = (c0.x - cam.x) / cam.z;
+  const my = (c0.y - cam.y) / cam.z;
+  return { x: c1.x - mx * z, y: c1.y - my * z, z };
+}
+
 // Enquadra retângulos do mundo dentro da área visível (que já desconta painéis), com margem e zoom máximo.
 export function enquadrar(rets, area, margem, zMax) {
   if (!rets.length) return { x: 0, y: 0, z: 1 };

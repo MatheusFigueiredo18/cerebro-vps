@@ -9,6 +9,7 @@ const pasta = path.join(raiz, 'node_modules', 'lucide-static', 'icons');
 
 // nome usado na interface -> nome do ícone no Lucide
 const MAPA = {
+  menos: 'minus', ondas: 'audio-lines', filme: 'film', globo: 'globe', brilho: 'sparkles', livro: 'book-open',
   grafo: 'network', pasta: 'folder', doc: 'file-text', imagem: 'image', video: 'video', banco: 'table', busca: 'search',
   estrela: 'star', raio: 'zap', conversa: 'message-square', whatsapp: 'message-circle', n8n: 'workflow', conteudos: 'layout-grid',
   imagens: 'images', sol: 'sun', lua: 'moon', sair: 'log-out', mais: 'plus', x: 'x', voltar: 'chevron-left', avancar: 'chevron-right',

@@ -1,5 +1,5 @@
 // Função WhatsApp: motor de IA, estado da conexão com QR, quem pode dar ordens, extras e MCP, endereço do painel.
-import { el, api, icone, selo, avisar, botaoConfirmar } from './comum.js';
+import { el, api, icone, logo, avisar, botaoConfirmar } from './comum.js';
 import { formatarTelefone, numeroValido } from './formatos.js';
 import * as shell from './shell.js';
 import { pedirNaConversa } from './conversas.js';
@@ -15,14 +15,17 @@ function montar(corpo) {
   let qr = null; // código na tela
   let alertaQr = '';
   let visivel = true;
-  const raiz = el('div', { class: 'config' });
+  const raiz = el('div', { class: 'config' }, el('p', { class: 'vazio' }, 'Carregando…'));
   corpo.append(raiz);
 
   async function carregar() {
     try {
       [cfg, motores, extras] = await Promise.all([api('/api/config'), api('/api/config/motores'), api('/api/extras')]);
       pintar();
-    } catch (e) { if (!cfg) raiz.replaceChildren(el('p', { class: 'vazio' }, e.message)); }
+    } catch (e) {
+      console.error('WhatsApp: não consegui montar a tela', e);
+      if (!raiz.querySelector('.config-topo')) raiz.replaceChildren(el('p', { class: 'vazio' }, `Não consegui montar esta tela: ${e.message}`));
+    }
   }
 
   const secao = (titulo, ...filhos) => el('section', { class: 'config-secao' }, el('h2', {}, titulo), ...filhos);
@@ -43,7 +46,7 @@ function montar(corpo) {
         onclick: async () => {
           try { Object.assign(motores, await api('/api/config/motores', { metodo: 'POST', corpo: { [campo]: id } })); pintar(); } catch (e) { avisar(e.message, 'erro'); }
         },
-      }, selo(m.nome, 'motor'), m.nome, m.instalado ? null : el('small', {}, 'não instalado')))));
+      }, logo(id, m.nome, 'motor'), m.nome, m.instalado ? null : el('small', {}, 'não instalado')))));
   }
   const secaoMotor = () => secao('Motor de IA',
     escolha('Conversas novas do painel', 'padrao'),
@@ -68,7 +71,7 @@ function montar(corpo) {
     const w = cfg.whatsapp;
     const [rotulo, cor] = ESTADOS[w.estado] ?? ESTADOS.indisponivel;
     const filhos = [
-      el('div', { class: 'whats-estado' }, el('span', { class: `selo ${cor}` }, rotulo),
+      el('div', { class: 'whats-estado' }, logo('whatsapp', 'WhatsApp', 'grande'), el('span', { class: `selo ${cor}` }, rotulo),
         w.estado === 'open' && w.numero ? el('b', {}, formatarTelefone(w.numero)) : null, w.nomePerfil && w.estado === 'open' ? el('span', { class: 'dica' }, w.nomePerfil) : null),
       el('p', { class: 'dica' }, `Fluxo: WhatsApp → n8n → painel → ${motores.motores[motores.whatsapp]?.nome ?? 'motor'} → resposta no WhatsApp.`),
     ];
@@ -125,7 +128,7 @@ function montar(corpo) {
   // ---------- extras ----------
   const pedir = (pedido) => { pedirNaConversa(pedido); };
   const secaoExtras = (titulo, itens) => secao(titulo,
-    el('ul', { class: 'extras' }, itens.map((x) => el('li', {}, selo(x.nome, 'grande'), el('span', { class: 'extra-texto' }, el('b', {}, x.nome), el('small', {}, x.faz)),
+    el('ul', { class: 'extras' }, itens.map((x) => el('li', {}, logo(x.logo ?? x.id, x.nome, 'grande'), el('span', { class: 'extra-texto' }, el('b', {}, x.nome), el('small', {}, x.faz)),
       x.instalado ? el('span', { class: 'selo pronto' }, 'instalado') : el('button', { type: 'button', class: 'bt pequeno', onclick: () => pedir(x.pedido) }, 'Pedir na conversa')))),
     el('p', { class: 'dica' }, 'O pedido já vem escrito na conversa: é só conferir e apertar Enter. Chaves e logins são pedidos ali mesmo e guardados no servidor, fora do cérebro.'));
 

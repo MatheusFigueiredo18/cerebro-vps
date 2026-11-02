@@ -1,12 +1,12 @@
 // Guia fixa do grafo: pastas, notas e mídias ligadas por links, com simulação de forças, zoom e arrastar.
-import { el, api } from './comum.js';
+import { el, api, icone } from './comum.js';
 import { posicaoInicial, passo, raioDe } from './grafo-fisica.js';
-import { zoomEm } from './camera.js';
+import { zoomEm, pinca } from './camera.js';
 import * as shell from './shell.js';
 import { abrirCaminho } from './lateral.js';
 
 const PASSOS_ANTES = 300;
-const ZOOM = [0.2, 4];
+const ZOOM = [0.1, 4];
 const RITMO_FUNDO_MS = 120; // aba do navegador em segundo plano: segue andando, mais devagar
 
 function montarGrafo(corpo) {
@@ -15,8 +15,24 @@ function montarGrafo(corpo) {
   const legenda = el('div', { class: 'grafo-legenda' },
     ...[['pasta', 'Pasta'], ['nota', 'Nota'], ['midia', 'Mídia']].map(([t, n]) => el('span', {}, el('i', { class: `ponto ${t}` }), n)));
   const vazio = el('p', { class: 'vazio grafo-vazio', hidden: true }, 'Nada para mostrar ainda. Crie uma página na lateral.');
+  // botões de zoom: no celular o gesto de pinça pode falhar em alguns navegadores, e no computador ajudam quem não usa a roda
+  const botaoZoom = (nome, rotulo, acao) => {
+    const b = el('button', { type: 'button', class: 'grafo-zoom-btn', 'aria-label': rotulo, title: rotulo }, icone(nome));
+    b.addEventListener('click', acao);
+    return b;
+  };
+  const zoomCentro = (fator) => {
+    if (!cam) return;
+    const r = canvas.getBoundingClientRect();
+    cam = zoomEm(cam, r.width / 2, r.height / 2, fator, ...ZOOM);
+    desenhar();
+  };
+  const zoomBotoes = el('div', { class: 'grafo-zoom' },
+    botaoZoom('mais', 'Aproximar', () => zoomCentro(1.4)),
+    botaoZoom('menos', 'Afastar', () => zoomCentro(1 / 1.4)),
+    botaoZoom('alvo', 'Enquadrar tudo', () => { if (nos.length) { enquadrar(); desenhar(); } }));
   corpo.classList.add('grafo');
-  corpo.append(canvas, legenda, etiqueta, vazio);
+  corpo.append(canvas, legenda, zoomBotoes, etiqueta, vazio);
   const ctx = canvas.getContext('2d');
 
   let nos = [];
@@ -29,6 +45,8 @@ function montarGrafo(corpo) {
   let laco = null;
   let sobre = null;
   let arraste = null; // { tipo: 'no'|'fundo', ... }
+  const dedos = new Map(); // ponteiros ativos (id -> posição relativa ao canvas), para a pinça de dois dedos
+  let pincando = null; // { a0, b0, cam } no momento em que o segundo dedo tocou
   let cores = {};
 
   const lerCores = () => {
@@ -143,6 +161,15 @@ function montarGrafo(corpo) {
     if (!cam) return;
     canvas.setPointerCapture(e.pointerId);
     const p = mundo(e);
+    dedos.set(e.pointerId, { x: p.sx, y: p.sy });
+    if (dedos.size === 2) { // segundo dedo: passa a ser pinça e cancela qualquer arraste em andamento
+      if (arraste?.tipo === 'no') nos[arraste.i].fixo = false;
+      arraste = null;
+      const [a, b] = [...dedos.values()];
+      pincando = { a0: { ...a }, b0: { ...b }, cam: { ...cam } };
+      return;
+    }
+    if (dedos.size > 2) return;
     const i = noEm(p);
     arraste = i === null ? { tipo: 'fundo', x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moveu: false } : { tipo: 'no', i, moveu: false, x: e.clientX, y: e.clientY };
     if (i !== null) { nos[i].fixo = true; calor = Math.max(calor, 0.3); animar(); }
@@ -150,6 +177,13 @@ function montarGrafo(corpo) {
   canvas.addEventListener('pointermove', (e) => {
     if (!cam) return;
     const p = mundo(e);
+    if (dedos.has(e.pointerId)) dedos.set(e.pointerId, { x: p.sx, y: p.sy });
+    if (pincando && dedos.size >= 2) {
+      const [a1, b1] = [...dedos.values()];
+      cam = pinca(pincando.cam, pincando.a0, pincando.b0, a1, b1, ...ZOOM);
+      desenhar();
+      return;
+    }
     if (arraste) {
       if (Math.hypot(e.clientX - arraste.x, e.clientY - arraste.y) > 4) arraste.moveu = true;
       if (arraste.tipo === 'fundo') { cam.x = arraste.cx + e.clientX - arraste.x; cam.y = arraste.cy + e.clientY - arraste.y; desenhar(); }
@@ -162,7 +196,14 @@ function montarGrafo(corpo) {
     etiqueta.hidden = i === null;
     if (i !== null) { etiqueta.textContent = nos[i].id; etiqueta.style.left = `${p.sx + 14}px`; etiqueta.style.top = `${p.sy + 10}px`; }
   });
-  const soltar = () => {
+  const soltar = (e) => {
+    if (e?.pointerId !== undefined) dedos.delete(e.pointerId);
+    if (pincando) { // acabou a pinça: não abre nota nem arrasta com o dedo que sobrou
+      if (dedos.size < 2) pincando = null;
+      arraste = null;
+      animar();
+      return;
+    }
     if (!arraste) return;
     const a = arraste;
     arraste = null;

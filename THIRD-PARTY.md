@@ -50,3 +50,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ```
+
+## Simple Icons (logotipos de marcas na interface)
+
+Os desenhos em `cliente/logos.js` (Claude, Google Gemini, WhatsApp, FFmpeg, Vercel, GitHub, n8n, OpenRouter, Notion, Supabase e Postiz) são gerados a partir do pacote `simple-icons`, cujos arquivos estão em domínio público (CC0 1.0). As marcas pertencem aos seus respectivos donos e aparecem só para identificar cada serviço; este projeto não tem vínculo com eles nem é endossado por eles.

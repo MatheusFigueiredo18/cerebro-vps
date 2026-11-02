@@ -44,6 +44,8 @@ export async function api(rota, { metodo = 'GET', corpo, cru } = {}) {
 
 // ---------- ícones (desenhos fixos, nenhum dado do cérebro passa por aqui) ----------
 import { P } from './icones.js'; // gerado por scripts/gerar-icones.mjs
+import { MARCAS, SEMANTICOS } from './logos.js'; // gerado por scripts/gerar-logos.mjs
+import { chaveDoLogo, usaCorDaMarca } from './marcas.js';
 
 export function icone(nome, cls = '') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -57,8 +59,29 @@ export function icone(nome, cls = '') {
 // Botão só de ícone sempre leva rótulo para leitor de tela e dica ao passar o mouse.
 export const botaoIcone = (nome, rotulo, onclick, cls = '') => el('button', { type: 'button', class: `bt-icone ${cls}`.trim(), title: rotulo, 'aria-label': rotulo, onclick }, icone(nome));
 
-// Selo com a inicial, no lugar de logotipos (que não fazem parte deste pacote).
+// Selo com a inicial: o último recurso quando o serviço não tem marca nem ícone de função.
 export const selo = (nome, cls = '') => el('span', { class: `selo-letra ${cls}`.trim(), 'aria-hidden': 'true' }, String(nome ?? '?').trim().charAt(0).toUpperCase());
+
+// Ícone de um motor, aplicação ou conexão: a marca do serviço quando existe, senão um ícone da função dele,
+// senão a inicial. Os desenhos vêm de tabelas fixas (logos.js e icones.js), nunca de dado do cérebro.
+export function logo(chave, nome, cls = '') {
+  const k = chaveDoLogo(chave);
+  const marca = MARCAS[k];
+  const classe = `logo-tile ${cls}`.trim();
+  if (marca) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', 'logo-marca');
+    svg.setAttribute('aria-hidden', 'true');
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', marca.d);
+    p.setAttribute('fill', usaCorDaMarca(marca.cor) ? marca.cor : 'currentColor');
+    svg.append(p);
+    return el('span', { class: classe, title: nome, 'aria-hidden': 'true' }, svg);
+  }
+  if (SEMANTICOS[k]) return el('span', { class: classe, title: nome, 'aria-hidden': 'true' }, icone(SEMANTICOS[k]));
+  return selo(nome, cls);
+}
 
 // Aviso flutuante curto.
 let timerAviso;
