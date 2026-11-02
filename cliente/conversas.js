@@ -3,7 +3,7 @@
 import { el, api, icone, botaoIcone, logo, ler, guardar, emitir, avisar, hora, botaoConfirmar } from './comum.js';
 import { lerNota, nomeBase, tipoArquivo } from './formatos.js';
 import { chaveDoMotor } from './marcas.js';
-import { zoomEm, enquadrar, layoutFilhos } from './camera.js';
+import { zoomEm, pinca as pincaCam, enquadrar, layoutFilhos } from './camera.js';
 import { renderizar, urlArquivo } from './markdown.js';
 import * as shell from './shell.js';
 import { abrirFuncao } from './lateral.js';
@@ -420,7 +420,16 @@ function montar(corpo) {
   ligacoes.setAttribute('aria-hidden', 'true');
   mundo.append(ligacoes);
   const zoom = el('div', { class: 'zoom-indicador', hidden: true });
-  const palco = el('div', { class: 'palco' }, mundo, zoom, el('div', { class: 'palco-acoes' }, botaoIcone('alvo', 'Centralizar em todos os cards', () => centralizar(true))));
+  const zoomCentro = (fator) => {
+    if (!espaco.cam) return;
+    espaco.cam = zoomEm(espaco.cam, palco.clientWidth / 2, palco.clientHeight / 2, fator, ...ZOOM);
+    aplicarCam();
+    mostrarZoom();
+  };
+  const palco = el('div', { class: 'palco' }, mundo, zoom, el('div', { class: 'palco-acoes' },
+    botaoIcone('mais', 'Aproximar', () => zoomCentro(1.25)),
+    botaoIcone('menos', 'Afastar', () => zoomCentro(0.8)),
+    botaoIcone('alvo', 'Centralizar em todos os cards', () => centralizar(true))));
   const listaEl = el('ul', { class: 'conversas-lista' });
   const comece = el('div', { class: 'comece', hidden: true });
   const coluna = el('aside', { class: 'coluna', 'aria-label': 'Lista de conversas' }, comece,
@@ -432,13 +441,37 @@ function montar(corpo) {
   ui = { palco, mundo, ligacoes, zoom, lista: listaEl, comece, seletor };
 
   // câmera: arrastar o fundo desloca; rolar desloca; Ctrl ou Cmd mais rolagem dá zoom no ponteiro
+  // pinça com dois dedos (celular): aproxima e afasta ao redor do ponto entre os dedos
+  const dedos = new Map();
+  let pinca0 = null;
+  let pan = null;
+  const ponto = (e) => { const r = palco.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   palco.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || !espaco.cam || e.target.closest('.card, .palco-acoes')) return;
+    if (e.pointerType === 'mouse' || !espaco.cam || e.target.closest('.palco-acoes')) return;
+    dedos.set(e.pointerId, ponto(e));
+    if (dedos.size === 2) { const [a, b] = [...dedos.values()]; pinca0 = { a, b, cam: espaco.cam }; pan = null; }
+  }, true);
+  palco.addEventListener('pointermove', (e) => {
+    if (!dedos.has(e.pointerId)) return;
+    dedos.set(e.pointerId, ponto(e));
+    if (!pinca0 || dedos.size < 2) return;
+    const [a, b] = [...dedos.values()];
+    espaco.cam = pincaCam(pinca0.cam, pinca0.a, pinca0.b, a, b, ...ZOOM);
+    aplicarCam();
+    mostrarZoom();
+  }, true);
+  const largarDedo = (e) => { dedos.delete(e.pointerId); if (dedos.size < 2) pinca0 = null; };
+  palco.addEventListener('pointerup', largarDedo, true);
+  palco.addEventListener('pointercancel', largarDedo, true);
+
+  palco.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || !espaco.cam || pinca0 || dedos.size > 1 || e.target.closest('.card, .palco-acoes')) return;
     const ini = { x: e.clientX, y: e.clientY, cx: espaco.cam.x, cy: espaco.cam.y };
+    pan = ini;
     palco.setPointerCapture(e.pointerId);
     palco.classList.add('arrastando');
-    const mover = (m) => { espaco.cam = { ...espaco.cam, x: ini.cx + m.clientX - ini.x, y: ini.cy + m.clientY - ini.y }; aplicarCam(); };
-    const soltar = () => { palco.removeEventListener('pointermove', mover); palco.classList.remove('arrastando'); };
+    const mover = (m) => { if (pan !== ini) return; espaco.cam = { ...espaco.cam, x: ini.cx + m.clientX - ini.x, y: ini.cy + m.clientY - ini.y }; aplicarCam(); };
+    const soltar = () => { palco.removeEventListener('pointermove', mover); palco.classList.remove('arrastando'); if (pan === ini) pan = null; };
     palco.addEventListener('pointermove', mover);
     palco.addEventListener('pointerup', soltar, { once: true });
     palco.addEventListener('pointercancel', soltar, { once: true });

@@ -512,3 +512,8 @@ div.bloco-texto:empty:focus::before { content: attr(data-ph); color: var(--texto
   :root { --desfoque: none; }
   .lateral, .dock { background-color: var(--painel) !important; background-image: none !important; }
 }
+
+/* Conversas no celular: a pinça é do canvas, não do navegador */
+.card { touch-action: pan-x pan-y; }
+.card-topo { touch-action: none; }
+@media (max-width: 720px) { .coluna { padding-bottom: 76px; } }
