@@ -3,7 +3,9 @@
 import { el, api, icone, botaoIcone, logo, ler, guardar, emitir, avisar, hora, botaoConfirmar } from './comum.js';
 import { lerNota, nomeBase, tipoArquivo } from './formatos.js';
 import { chaveDoMotor } from './marcas.js';
-import { zoomEm, pinca as pincaCam, enquadrar, layoutFilhos } from './camera.js';
+import { zoomEm, pinca as pincaCam, enquadrar, layoutFilhos, TAM } from './camera.js';
+import { referenciaPrompt, caminhosDoArrasto, arrastoTemArquivos, posicaoSolta, pontaLigacao, caminhoCurvo, adicionarAnexos } from './anexos.js';
+import { enviarArquivos } from './envio.js';
 import { renderizar, urlArquivo } from './markdown.js';
 import * as shell from './shell.js';
 import { abrirFuncao } from './lateral.js';
@@ -200,7 +202,9 @@ function pintarLigacoes() {
   for (const c of cards.values()) {
     if (!c.filho) continue;
     let d;
-    if (c.filho === 'sub') {
+    if (c.filho === 'anexo') {
+      d = caminhoCurvo(pontaLigacao(t.r, c.r)); // arquivo ligado a esta conversa: a linha sai do lado mais perto
+    } else if (c.filho === 'sub') {
       const [x1, y1, x2, y2] = [t.r.x + t.r.w / 2, t.r.y + t.r.h, c.r.x + c.r.w / 2, c.r.y];
       d = `M${x1} ${y1} C${x1} ${y1 + 70} ${x2} ${y2 - 70} ${x2} ${y2}`;
     } else {
@@ -209,7 +213,7 @@ function pintarLigacoes() {
     }
     const p = document.createElementNS(SVG, 'path');
     p.setAttribute('d', d);
-    p.setAttribute('class', c.trabalhando ? 'ligacao viva' : 'ligacao');
+    p.setAttribute('class', c.trabalhando ? 'ligacao viva' : c.filho === 'anexo' ? 'ligacao anexo' : 'ligacao');
     ui.ligacoes.append(p);
   }
 }
@@ -222,6 +226,7 @@ function pintarEspaco() {
   cards = new Map();
   espaco = ler(chaveEspaco(), null) ?? { cam: null, pos: {} };
   if (!espaco.pos) espaco.pos = {};
+  if (!Array.isArray(espaco.anexos)) espaco.anexos = []; // arquivos soltos nesta área de trabalho
   const c = conversa(ativa);
   if (!c) {
     const b = criarCard('boas-vindas', { x: 0, y: 0, ...BOAS_VINDAS }, { icone: 'robo', titulo: 'Bem-vindo', sub: 'Mesa' });
@@ -241,8 +246,76 @@ function pintarEspaco() {
     montarTerminal(t.corpo, c.id);
   }
   if (c) atualizarFilhos(c);
+  pintarAnexos();
   pintarLigacoes();
   if (espaco.cam) aplicarCam(); else requestAnimationFrame(() => { if (ui) centralizar(false); });
+}
+
+// ---------- arquivos soltos na área de trabalho (vindos de Conteúdos ou do computador) ----------
+const TAM_ANEXO = { imagem: TAM.imagem, video: { w: 280, h: 340 }, arquivo: { w: 260, h: 130 } };
+
+function pintarAnexos() {
+  for (const a of espaco.anexos) {
+    const id = `a:${a.caminho}`;
+    if (cards.has(id)) continue;
+    const tipo = tipoArquivo(a.caminho);
+    const tam = TAM_ANEXO[tipo] ?? TAM_ANEXO.arquivo;
+    const card = criarCard(id, { x: a.x, y: a.y, ...tam }, {
+      icone: tipo === 'video' ? 'video' : tipo === 'imagem' ? 'imagem' : 'doc', titulo: nomeBase(a.caminho), sub: conversa(ativa) ? 'ligado a esta conversa' : 'solto na mesa', classe: 'card-midia card-anexo',
+      extras: [
+        botaoIcone('terminal', 'Enviar ao prompt', () => enviarAoPrompt([a.caminho]), 'pequeno'),
+        botaoIcone('x', 'Tirar da área de trabalho', () => removerAnexo(a.caminho), 'pequeno')],
+    });
+    card.filho = 'anexo';
+    const conteudo = tipo === 'video' ? el('video', { src: urlArquivo(a.caminho), controls: true, preload: 'metadata', playsInline: true })
+      : tipo === 'imagem' ? el('img', { src: urlArquivo(a.caminho), alt: nomeBase(a.caminho), loading: 'lazy', draggable: false })
+        : el('span', { class: 'capa-icone' }, icone('doc'), el('small', {}, (/\.([^.]+)$/.exec(a.caminho)?.[1] ?? 'arquivo').toUpperCase()));
+    card.corpo.append(tipo === 'arquivo' ? conteudo : el('button', { type: 'button', class: 'midia-abrir', title: 'Abrir no visor', 'aria-label': `Abrir ${nomeBase(a.caminho)} no visor`, onclick: () => emitir('visor', { lista: [a.caminho], inicio: a.caminho }) }, conteudo));
+  }
+}
+
+function removerAnexo(caminho) {
+  const id = `a:${caminho}`;
+  espaco.anexos = espaco.anexos.filter((a) => a.caminho !== caminho);
+  delete espaco.pos[id];
+  cards.get(id)?.el.remove();
+  cards.delete(id);
+  pintarLigacoes();
+  salvarEspaco();
+}
+
+// Escreve a referência dos arquivos no prompt da conversa (sem apertar Enter: o Matheus completa o pedido).
+function enviarAoPrompt(caminhos) {
+  const c = conversa(ativa);
+  const T = c && terminais.get(c.id);
+  if (!c || ehWhats(c) || !T) { avisar('Abra uma conversa com terminal para mandar o arquivo ao prompt.'); return false; }
+  if (T.ws?.readyState !== 1) { T.conectar(); avisar('O terminal está reconectando. Tente de novo em um instante.'); return false; }
+  T.ws.send(JSON.stringify({ t: 'i', d: referenciaPrompt(caminhos, chaveDoMotor(c.motorNome)) }));
+  T.term.focus();
+  return true;
+}
+
+// Soltar na área de trabalho vira card ligado à conversa; soltar em cima do terminal também escreve no prompt.
+async function soltarNaArea(e) {
+  const dt = e.dataTransfer;
+  const caminhos = caminhosDoArrasto(dt);
+  const arquivos = [...(dt.files ?? [])]; // ler antes de qualquer await: depois o navegador esvazia o dataTransfer
+  const noPrompt = !!e.target.closest?.('.card-terminal');
+  const ponto = { x: e.clientX, y: e.clientY };
+  const alvoId = ativa;
+  if (arquivos.length) caminhos.push(...await enviarArquivos(arquivos));
+  if (!caminhos.length || !ui || alvoId !== ativa) return;
+  const principal = cards.get('terminal') ?? cards.get('historico');
+  let pos;
+  if (noPrompt && principal) pos = { x: principal.r.x + principal.r.w + 80, y: principal.r.y }; // ao lado do terminal, ligado a ele
+  else pos = posicaoSolta(espaco.cam ?? { x: 0, y: 0, z: 1 }, ui.palco.getBoundingClientRect(), ponto.x, ponto.y, TAM_ANEXO.imagem.w, 120);
+  const antes = espaco.anexos.length;
+  espaco.anexos = adicionarAnexos(espaco.anexos, caminhos, pos);
+  pintarAnexos();
+  pintarLigacoes();
+  salvarEspaco();
+  if (noPrompt) { if (enviarAoPrompt(caminhos)) avisar(`${caminhos.length} arquivo${caminhos.length === 1 ? '' : 's'} no prompt`); }
+  else if (espaco.anexos.length === antes) avisar('Esse arquivo já está na área de trabalho.');
 }
 
 function atualizarEspaco() {
@@ -492,6 +565,28 @@ function montar(corpo) {
     espaco.cam = { ...espaco.cam, x: espaco.cam.x - e.deltaX, y: espaco.cam.y - e.deltaY };
     aplicarCam();
   }, { passive: false });
+
+  // arrastar arquivos (da janela de Conteúdos ou do computador) para a área de trabalho ou para o terminal
+  const marcarAlvo = (e) => {
+    const noPrompt = !!e.target.closest?.('.card-terminal');
+    palco.classList.toggle('alvo-solta', !noPrompt);
+    ui.mundo.querySelector('.card-terminal')?.classList.toggle('alvo-prompt', noPrompt);
+  };
+  const limparAlvo = () => { palco.classList.remove('alvo-solta'); ui.mundo.querySelector('.card-terminal')?.classList.remove('alvo-prompt'); };
+  palco.addEventListener('dragover', (e) => {
+    if (!arrastoTemArquivos(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    marcarAlvo(e);
+  });
+  palco.addEventListener('dragleave', (e) => { if (!palco.contains(e.relatedTarget)) limparAlvo(); });
+  palco.addEventListener('drop', (e) => {
+    if (!arrastoTemArquivos(e.dataTransfer)) return;
+    e.preventDefault();
+    limparAlvo();
+    document.body.classList.remove('arrastando-arquivo');
+    soltarNaArea(e);
+  });
 
   const tecla = (e) => { if (e.key === 'Escape' && document.getElementById('visor').hidden && fecharSeletor()) e.preventDefault(); };
   document.addEventListener('keydown', tecla);

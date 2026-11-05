@@ -1,10 +1,24 @@
 // Função Conteúdos: galeria da pasta conteudo/ com capas, pasta aberta agrupada por subpasta e envio de arquivos.
-import { $, el, api, icone, emitir } from './comum.js';
+import { $, el, api, icone, emitir, ouvir } from './comum.js';
 import { tituloAmigavel, dataCurta, tamanhoLegivel, rotuloCategoria, agruparPorSubpasta, tipoArquivo, nomeBase } from './formatos.js';
 import { urlArquivo } from './markdown.js';
+import { TIPO_ARRASTO } from './anexos.js';
+import { enviarArquivos, ENVIADOS } from './envio.js';
 import * as shell from './shell.js';
 
-const ENVIADOS = 'conteudo/enviados';
+// Torna um elemento arrastável: leva o caminho do arquivo para a área de trabalho das conversas.
+function arrastavel(no, caminho, dica) {
+  no.draggable = true;
+  no.title = dica ? `${no.title ? `${no.title} · ` : ''}${dica}` : no.title;
+  no.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData(TIPO_ARRASTO, JSON.stringify([caminho]));
+    e.dataTransfer.setData('text/plain', caminho);
+    setTimeout(() => document.body.classList.add('arrastando-arquivo'), 0); // depois que o navegador tira a miniatura do arrasto
+  });
+  no.addEventListener('dragend', () => document.body.classList.remove('arrastando-arquivo'));
+  return no;
+}
 
 function capa(item) {
   if (item.capa?.tipo === 'imagem') return el('img', { src: urlArquivo(item.capa.caminho), alt: '', loading: 'lazy' });
@@ -58,11 +72,15 @@ function montar(corpo) {
     }
     lista.replaceChildren(...comItens.map((c) => el('section', { class: 'categoria' },
       el('h3', {}, rotuloCategoria(c.nome), el('small', {}, String(c.itens.length))),
-      el('div', { class: 'cartoes' }, c.itens.map((i) => el('button', {
-        type: 'button', class: 'cartao-conteudo',
-        onclick: () => { if (i.pasta) { pasta = i.caminho; carregar(); } else emitir('visor', { lista: [i.caminho], inicio: i.caminho }); },
-      }, el('span', { class: 'cartao-capa' }, capa(i)), el('b', {}, tituloAmigavel(i.nome, !i.pasta)),
-      el('small', {}, [i.pasta ? `${i.arquivos} arquivo${i.arquivos === 1 ? '' : 's'}` : (/\.([^.]+)$/.exec(i.nome)?.[1] ?? '').toUpperCase(), dataCurta(i.nome, i.mtime)].filter(Boolean).join(' · '))))))));
+      el('div', { class: 'cartoes' }, c.itens.map((i) => {
+        const botao = el('button', {
+          type: 'button', class: 'cartao-conteudo',
+          onclick: () => { if (i.pasta) { pasta = i.caminho; carregar(); } else emitir('visor', { lista: [i.caminho], inicio: i.caminho }); },
+        }, el('span', { class: 'cartao-capa' }, capa(i)), el('b', {}, tituloAmigavel(i.nome, !i.pasta)),
+        el('small', {}, [i.pasta ? `${i.arquivos} arquivo${i.arquivos === 1 ? '' : 's'}` : (/\.([^.]+)$/.exec(i.nome)?.[1] ?? '').toUpperCase(), dataCurta(i.nome, i.mtime)].filter(Boolean).join(' · ')));
+        // o botão não é arrastável no Firefox: o arrasto fica num envoltório
+        return i.pasta ? botao : arrastavel(el('div', { class: 'cartao-arrastavel' }, botao), i.caminho, 'arraste para a área de trabalho');
+      })))));
   }
 
   async function pintarPasta() {
@@ -76,40 +94,16 @@ function montar(corpo) {
     if (!arquivos.length) { lista.replaceChildren(el('p', { class: 'vazio' }, 'Pasta vazia.')); return; }
     lista.replaceChildren(...grupos.map((g) => el('section', { class: 'categoria' },
       g.grupo ? el('h3', {}, g.grupo) : null,
-      el('div', { class: 'miniaturas' }, g.arquivos.map((a) => el('div', { class: 'miniatura' },
+      el('div', { class: 'miniaturas' }, g.arquivos.map((a) => arrastavel(el('div', { class: 'miniatura' },
         el('button', { type: 'button', class: 'miniatura-abrir', 'aria-label': `Abrir ${a.nome}`, onclick: () => emitir('visor', { lista: todos, inicio: a.caminho }) }, miniatura(a.caminho)),
         el('div', { class: 'miniatura-info' }, el('span', { title: a.nome }, a.nome), el('small', {}, tamanhoLegivel(a.tamanho)),
-          el('a', { class: 'bt-icone pequeno', href: urlArquivo(a.caminho, true), download: a.nome, title: 'Baixar', 'aria-label': `Baixar ${a.nome}` }, icone('baixar')))))))));
+          el('a', { class: 'bt-icone pequeno', href: urlArquivo(a.caminho, true), download: a.nome, title: 'Baixar', 'aria-label': `Baixar ${a.nome}`, draggable: false }, icone('baixar')))), a.caminho, 'arraste para a área de trabalho'))))));
   }
 
   // ---------- envio: um arquivo por vez, com aviso de progresso ----------
   async function enviar(arquivos) {
     if (!arquivos.length) return;
-    const pastaDestino = destino();
-    const caixa = $('#envio');
-    const barra = el('progress', { max: 100, value: 0 });
-    const linha = el('span');
-    caixa.replaceChildren(icone('enviar'), el('div', {}, linha, barra));
-    caixa.hidden = false;
-    let ok = 0;
-    for (const [i, f] of arquivos.entries()) {
-      linha.textContent = `${i + 1} de ${arquivos.length} · ${f.name}`;
-      barra.value = 0;
-      const deu = await new Promise((fim) => {
-        const x = new XMLHttpRequest(); // XHR porque o fetch não informa o progresso do envio
-        x.open('POST', `/api/enviar?pasta=${encodeURIComponent(pastaDestino)}&nome=${encodeURIComponent(f.name)}`);
-        x.setRequestHeader('Content-Type', 'application/octet-stream');
-        x.upload.onprogress = (e) => { if (e.lengthComputable) barra.value = Math.round((e.loaded / e.total) * 100); };
-        x.onload = () => { if (x.status === 401) emitir('sessao-expirou'); fim(x.status === 200); };
-        x.onerror = () => fim(false);
-        x.send(f);
-      });
-      if (deu) ok += 1;
-    }
-    linha.textContent = `${ok} de ${arquivos.length} enviado${arquivos.length === 1 ? '' : 's'} para ${pastaDestino === ENVIADOS ? 'Enviados' : pastaDestino}`;
-    barra.remove();
-    setTimeout(() => { caixa.hidden = true; }, 4000);
-    emitir('arvore-mudou');
+    await enviarArquivos(arquivos, destino());
     carregar();
   }
 
@@ -135,4 +129,37 @@ function montar(corpo) {
   return { mostrar: carregar };
 }
 
+// Guias antigas de Conteúdos (salvas no navegador) continuam abrindo.
 shell.registrar('conteudos', montar);
+
+// ---------- janela: a galeria flutua no centro (menos da metade da altura) sem esconder a área de trabalho ----------
+let janela = null;
+let vida = null;
+const tecla = (e) => { if (e.key === 'Escape' && $('#visor').hidden) { e.preventDefault(); fecharJanela(); } };
+
+export function fecharJanela() {
+  if (!janela) return;
+  try { vida?.limpar?.(); } catch { /* a janela já está saindo */ }
+  janela.remove();
+  janela = null;
+  vida = null;
+  document.removeEventListener('keydown', tecla);
+  emitir('conteudos-janela', { aberta: false });
+}
+
+export function abrirJanela() {
+  if (janela) return;
+  const corpo = el('div', { class: 'conteudos-janela-corpo' });
+  janela = el('section', { class: 'conteudos-janela', role: 'dialog', 'aria-label': 'Conteúdos' },
+    el('header', { class: 'conteudos-janela-topo' },
+      icone('conteudos'), el('b', {}, 'Conteúdos'),
+      el('small', {}, 'Arraste um arquivo para a área de trabalho ou para o prompt'),
+      el('button', { type: 'button', class: 'bt-icone', title: 'Fechar', 'aria-label': 'Fechar Conteúdos', onclick: fecharJanela }, icone('x'))),
+    corpo);
+  $('#painel').append(janela);
+  vida = montar(corpo);
+  document.addEventListener('keydown', tecla);
+  emitir('conteudos-janela', { aberta: true });
+}
+
+ouvir('conteudos-alternar', () => (janela ? fecharJanela() : abrirJanela()));

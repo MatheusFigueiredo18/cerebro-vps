@@ -517,3 +517,27 @@ div.bloco-texto:empty:focus::before { content: attr(data-ph); color: var(--texto
 .card { touch-action: pan-x pan-y; }
 .card-topo { touch-action: none; }
 @media (max-width: 720px) { .coluna { padding-bottom: 76px; } }
+
+/* ---------- Conteúdos como janela no centro, com menos da metade da altura, sem esconder a área de trabalho ---------- */
+.conteudos-janela { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 33; width: min(760px, calc(100vw - 24px)); height: 46vh; min-height: 240px; display: flex; flex-direction: column; border-radius: 14px; background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); overflow: hidden; transition: opacity .15s ease; }
+.conteudos-janela-topo { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--linha); flex: none; }
+.conteudos-janela-topo svg.i { width: 16px; height: 16px; color: var(--texto-2); }
+.conteudos-janela-topo small { flex: 1; min-width: 0; color: var(--texto-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conteudos-janela-corpo { position: relative; flex: 1; min-height: 0; overflow: auto; }
+.conteudos-janela-corpo.conteudos { padding: 14px 18px 24px; }
+.conteudos-janela .conteudos-topo { margin-bottom: 12px; }
+.conteudos-janela .conteudos-topo h2 { font-size: 16px; }
+.conteudos-janela .cartoes { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+.conteudos-janela .miniaturas { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área de trabalho enquanto o arquivo é arrastado */
+.cartao-arrastavel, .miniatura[draggable="true"] { cursor: grab; }
+.cartao-arrastavel > .cartao-conteudo { width: 100%; }
+
+/* soltar arquivos na área de trabalho das conversas */
+.palco.alvo-solta { background-color: color-mix(in srgb, var(--selecao) 55%, var(--fundo)); box-shadow: inset 0 0 0 2px var(--acento); }
+.palco.alvo-solta::after { content: 'Solte para trazer o arquivo para a área de trabalho'; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: var(--acento); color: var(--acento-texto); font-size: 12.5px; font-weight: 600; pointer-events: none; z-index: 2; }
+.card-terminal.alvo-prompt { border-color: var(--acento); box-shadow: 0 0 0 3px var(--halo), var(--sombra); }
+.card-terminal.alvo-prompt::after { content: 'Solte para escrever no prompt'; position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--acento) 30%, transparent); color: #fff; font-size: 15px; font-weight: 600; pointer-events: none; }
+.ligacao.anexo { stroke: var(--acento); stroke-dasharray: 2 7; stroke-linecap: round; opacity: .9; }
+.card-anexo .card-corpo .capa-icone { margin: auto; }
+@media (max-width: 720px) { .conteudos-janela { bottom: 76px; height: 56vh; } }

@@ -39,7 +39,14 @@ function acharNo(caminho, nos = dados) {
 
 export function abrirFuncao(id) {
   const f = FUNCOES.find((x) => x.id === id);
-  if (f) shell.abrir({ id: `f:${f.id}`, tipo: f.id, titulo: f.nome });
+  if (!f) return;
+  if (id === 'conteudos') {
+    // Conteúdos é uma janela flutuante sobre a área de trabalho das conversas (para arrastar arquivos para lá)
+    if (shell.ativa()?.tipo !== 'conversas') shell.abrir({ id: 'f:conversas', tipo: 'conversas', titulo: 'Conversas' });
+    emitir('conteudos-alternar');
+    return;
+  }
+  shell.abrir({ id: `f:${f.id}`, tipo: f.id, titulo: f.nome });
 }
 
 // Abre qualquer caminho do cérebro: mídia no visor (com as irmãs da pasta), página no editor, banco na tabela, o resto em guia de leitura.
