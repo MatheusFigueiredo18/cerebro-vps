@@ -109,16 +109,16 @@ function montar(corpo) {
 
   // a camada não pisca: conta entradas e saídas nos elementos internos
   corpo.addEventListener('dragenter', (e) => {
-    if (!e.dataTransfer?.types.includes('Files')) return;
+    if (!e.dataTransfer?.types.includes('Files') || e.dataTransfer.types.includes(TIPO_ARRASTO)) return;
     e.preventDefault();
     arrastando += 1;
     camada.textContent = `Solte para enviar a ${pasta ? tituloAmigavel(nomeBase(pasta), false) : 'Enviados'}`;
     camada.hidden = false;
   });
-  corpo.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });
+  corpo.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files') && !e.dataTransfer.types.includes(TIPO_ARRASTO)) e.preventDefault(); });
   corpo.addEventListener('dragleave', () => { arrastando = Math.max(0, arrastando - 1); if (!arrastando) camada.hidden = true; });
   corpo.addEventListener('drop', (e) => {
-    if (!e.dataTransfer?.files.length) return;
+    if (!e.dataTransfer?.files.length || e.dataTransfer.types.includes(TIPO_ARRASTO)) return; // arrasto interno não é envio
     e.preventDefault();
     arrastando = 0;
     camada.hidden = true;

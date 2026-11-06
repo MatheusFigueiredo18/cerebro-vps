@@ -15,7 +15,7 @@ const MAPA = {
   imagens: 'images', sol: 'sun', lua: 'moon', sair: 'log-out', mais: 'plus', x: 'x', voltar: 'chevron-left', avancar: 'chevron-right',
   seta: 'chevron-right', novaPagina: 'file-plus', novaPasta: 'folder-plus', novoBanco: 'table-properties', ordenar: 'arrow-up-down',
   recolher: 'chevrons-down-up', recarregar: 'refresh-cw', alvo: 'crosshair', baixar: 'download', enviar: 'upload', fixar: 'pin',
-  olho: 'eye', ocultar: 'eye-off', cima: 'chevron-up', baixo: 'chevron-down', play: 'play', terminal: 'terminal', lateral: 'panel-left',
+  olho: 'eye', ocultar: 'eye-off', cima: 'chevron-up', baixo: 'chevron-down', play: 'play', terminal: 'terminal', lateral: 'panel-left', copiar: 'copy', lateralDireita: 'panel-right',
   link: 'link', inbox: 'inbox', relogio: 'clock', robo: 'bot', config: 'settings',
 };
 

@@ -538,6 +538,17 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .palco.alvo-solta::after { content: 'Solte para trazer o arquivo para a área de trabalho'; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: var(--acento); color: var(--acento-texto); font-size: 12.5px; font-weight: 600; pointer-events: none; z-index: 2; }
 .card-terminal.alvo-prompt { border-color: var(--acento); box-shadow: 0 0 0 3px var(--halo), var(--sombra); }
 .card-terminal.alvo-prompt::after { content: 'Solte para escrever no prompt'; position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--acento) 30%, transparent); color: #fff; font-size: 15px; font-weight: 600; pointer-events: none; }
-.ligacao.anexo { stroke: var(--acento); stroke-dasharray: 2 7; stroke-linecap: round; opacity: .9; }
+.ligacao.anexo { stroke: var(--acento); stroke-width: 3.5; stroke-dasharray: 9 7; stroke-linecap: round; opacity: 1; }
+.ligacao.provisoria { stroke-dasharray: 3 8; opacity: .8; }
+.ligacao-alvo { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: pointer; }
+.alcas { position: absolute; left: 0; top: 0; width: 1px; height: 1px; z-index: 100000; pointer-events: none; }
+.alca { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; padding: 0; border-radius: 50%; background: var(--acento); border: 2px solid var(--fundo); box-shadow: 0 0 0 1px var(--acento); pointer-events: auto; cursor: crosshair; transform: scale(calc(1 / var(--z, 1))); opacity: .55; transition: opacity .12s; touch-action: none; }
+.alca:hover, .palco.ligando .alca { opacity: 1; }
+.palco.ligando { cursor: crosshair; }
+.card-filha .dica { padding: 10px 12px; margin: 0; font-size: 12.5px; }
 .card-anexo .card-corpo .capa-icone { margin: auto; }
 @media (max-width: 720px) { .conteudos-janela { bottom: 76px; height: 56vh; } }
+
+/* barra da direita recolhida (botão no canto da área de trabalho) */
+.guia-corpo.conversas.sem-coluna { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+.guia-corpo.conversas.sem-coluna .coluna { display: none; }

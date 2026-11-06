@@ -82,6 +82,28 @@ async function terminalDe(id) {
   const T = { term, fit, host: el('div', { class: 'term-host' }), ws: null, aberto: false };
   const enviar = (m) => { if (T.ws?.readyState === 1) T.ws.send(JSON.stringify(m)); };
   term.onData((d) => enviar({ t: 'i', d }));
+  // Copiar e colar: sem isto Ctrl+C/Ctrl+V vão como tecla para o Claude Code (^C interrompe, ^V tenta ler a área de transferência do servidor).
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type !== 'keydown' || !(e.ctrlKey || e.metaKey) || e.altKey) return true;
+    const k = e.key.toLowerCase();
+    if (k === 'c' && (term.hasSelection() || e.shiftKey)) { // com seleção copia; sem seleção, Ctrl+C continua interrompendo
+      const txt = term.getSelection();
+      if (txt) navigator.clipboard?.writeText(txt).catch(() => { /* sem permissão: Ctrl+Insert ainda copia */ });
+      return false;
+    }
+    return k !== 'v'; // false: o xterm não manda ^V e o navegador dispara o evento paste, tratado no xterm (texto) ou abaixo (imagem)
+  });
+  // Imagem/arquivo copiado: envia ao cérebro e escreve o caminho no prompt. Texto segue o paste normal do xterm.
+  T.host.addEventListener('paste', async (e) => {
+    const arquivos = [...(e.clipboardData?.files ?? [])];
+    if (!arquivos.length) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const nomeados = arquivos.map((f, i) => (f.name && f.name !== 'image.png' ? f : new File([f], `colado-${Date.now()}-${i}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type })));
+    const caminhos = await enviarArquivos(nomeados);
+    if (!caminhos.length) { avisar('Não consegui enviar o arquivo colado.', 'erro'); return; }
+    enviar({ t: 'i', d: referenciaPrompt(caminhos, chaveDoMotor(conversa(id)?.motorNome)) });
+  }, true);
   term.onResize(({ cols, rows }) => enviar({ t: 'r', cols, rows }));
   new ResizeObserver(() => { if (T.aberto && T.host.isConnected && T.host.clientWidth) requestAnimationFrame(() => { try { fit.fit(); } catch { /* fora da tela */ } }); }).observe(T.host);
   T.conectar = () => {
@@ -127,6 +149,7 @@ function aplicarCam(suave = false) {
   const { x, y, z } = espaco.cam;
   ui.mundo.classList.toggle('suave', suave);
   ui.mundo.style.transform = `translate(${x}px, ${y}px) scale(${z})`;
+  ui.mundo.style.setProperty('--z', z);
   ui.palco.style.backgroundPosition = `${x}px ${y}px`;
   ui.palco.style.backgroundSize = `${24 * z}px ${24 * z}px`;
   clearTimeout(timerCam);
@@ -198,13 +221,33 @@ const SVG = 'http://www.w3.org/2000/svg';
 function pintarLigacoes() {
   const t = cards.get('terminal') ?? cards.get('historico');
   ui.ligacoes.replaceChildren();
-  if (!t) return;
+  if (t) pintarFilhasDoTerminal(t);
+  // ligações feitas à mão pelas bolinhas: arquivo com prompt, arquivo com arquivo, prompt com nova conversa
+  for (const l of espaco.links) {
+    const a = cards.get(l.a);
+    const b = cards.get(l.b);
+    if (!a || !b) continue;
+    const d = caminhoCurvo(pontaLigacao(a.r, b.r));
+    const p = document.createElementNS(SVG, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('class', 'ligacao anexo');
+    const alvo = document.createElementNS(SVG, 'path'); // faixa larga e invisível para dar duplo clique
+    alvo.setAttribute('d', d);
+    alvo.setAttribute('class', 'ligacao-alvo');
+    alvo.addEventListener('dblclick', () => desligar(l));
+    const dica = document.createElementNS(SVG, 'title');
+    dica.textContent = 'Duplo clique para desfazer a ligação';
+    alvo.append(dica);
+    ui.ligacoes.append(p, alvo);
+  }
+  pintarAlcas();
+}
+
+function pintarFilhasDoTerminal(t) {
   for (const c of cards.values()) {
     if (!c.filho) continue;
     let d;
-    if (c.filho === 'anexo') {
-      d = caminhoCurvo(pontaLigacao(t.r, c.r)); // arquivo ligado a esta conversa: a linha sai do lado mais perto
-    } else if (c.filho === 'sub') {
+    if (c.filho === 'sub') {
       const [x1, y1, x2, y2] = [t.r.x + t.r.w / 2, t.r.y + t.r.h, c.r.x + c.r.w / 2, c.r.y];
       d = `M${x1} ${y1} C${x1} ${y1 + 70} ${x2} ${y2 - 70} ${x2} ${y2}`;
     } else {
@@ -213,8 +256,108 @@ function pintarLigacoes() {
     }
     const p = document.createElementNS(SVG, 'path');
     p.setAttribute('d', d);
-    p.setAttribute('class', c.trabalhando ? 'ligacao viva' : c.filho === 'anexo' ? 'ligacao anexo' : 'ligacao');
+    p.setAttribute('class', c.trabalhando ? 'ligacao viva' : 'ligacao');
     ui.ligacoes.append(p);
+  }
+}
+
+// ---------- bolinhas de ligação: nos 4 lados do prompt e dos arquivos ----------
+const LADOS = ['cima', 'direita', 'baixo', 'esquerda'];
+const comAlca = (id) => id === 'terminal' || id.startsWith('a:');
+const pontoDoLado = (r, lado) => ({ cima: [r.x + r.w / 2, r.y], direita: [r.x + r.w, r.y + r.h / 2], baixo: [r.x + r.w / 2, r.y + r.h], esquerda: [r.x, r.y + r.h / 2] }[lado]);
+
+function pintarAlcas() {
+  ui.alcas.replaceChildren();
+  for (const [id, c] of cards) {
+    if (!comAlca(id)) continue;
+    for (const lado of LADOS) {
+      const [x, y] = pontoDoLado(c.r, lado);
+      ui.alcas.append(el('button', {
+        type: 'button', class: `alca alca-${lado}`, title: id === 'terminal' ? 'Arraste para ligar a um arquivo ou criar uma nova conversa' : 'Arraste para ligar ao prompt ou a outro arquivo',
+        'aria-label': 'Ligar', style: `left:${x}px;top:${y}px`, dados: { alca: id }, onpointerdown: (e) => ligarDe(e, id, lado),
+      }));
+    }
+  }
+}
+
+function ligarDe(e, deId, lado) {
+  if (e.button !== 0 || !espaco.cam) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const de = cards.get(deId);
+  const palco = ui.palco.getBoundingClientRect();
+  const mundoDe = (cx, cy) => ({ x: (cx - palco.left - espaco.cam.x) / espaco.cam.z, y: (cy - palco.top - espaco.cam.y) / espaco.cam.z });
+  const p = document.createElementNS(SVG, 'path');
+  p.setAttribute('class', 'ligacao anexo provisoria');
+  ui.ligacoes.append(p);
+  ui.palco.classList.add('ligando');
+  const desenhar = (m) => {
+    const q = mundoDe(m.clientX, m.clientY);
+    p.setAttribute('d', caminhoCurvo(pontaLigacao(de.r, { x: q.x - 1, y: q.y - 1, w: 2, h: 2 })));
+  };
+  desenhar(e);
+  const mover = (m) => desenhar(m);
+  const fim = (m) => {
+    document.removeEventListener('pointermove', mover);
+    document.removeEventListener('pointerup', fim);
+    document.removeEventListener('pointercancel', fim);
+    ui?.palco.classList.remove('ligando');
+    p.remove();
+    if (!ui || m.type === 'pointercancel') return;
+    const alvo = document.elementFromPoint(m.clientX, m.clientY)?.closest('[data-card], [data-alca]');
+    const alvoId = alvo?.dataset.alca ?? alvo?.dataset.card;
+    if (alvoId && alvoId !== deId) ligar(deId, alvoId);
+    else if (!alvoId && deId === 'terminal') novaConversaLigada(mundoDe(m.clientX, m.clientY));
+  };
+  document.addEventListener('pointermove', mover);
+  document.addEventListener('pointerup', fim);
+  document.addEventListener('pointercancel', fim);
+}
+
+function ligar(a, b) {
+  if (!comAlca(a) || !comAlca(b) || !cards.has(a) || !cards.has(b)) return;
+  if (espaco.links.some((l) => (l.a === a && l.b === b) || (l.a === b && l.b === a))) { avisar('Esses dois já estão ligados.'); return; }
+  espaco.links.push({ a, b });
+  salvarEspaco();
+  pintarLigacoes();
+  const arquivo = [a, b].find((i) => i.startsWith('a:'));
+  if (arquivo && (a === 'terminal' || b === 'terminal') && enviarAoPrompt([caminhoDeId(arquivo)])) avisar('Arquivo ligado e escrito no prompt');
+}
+
+function desligar(l) {
+  espaco.links = espaco.links.filter((o) => o !== l);
+  salvarEspaco();
+  pintarLigacoes();
+}
+
+// Prompt ligado a prompt: a bolinha do prompt solta no vazio abre outra conversa, na mesma pasta do cérebro.
+// Worktree de verdade não é possível aqui: a pasta do cérebro não é um repositório git.
+async function novaConversaLigada(pos) {
+  const mae = conversa(ativa);
+  if (!mae || ehWhats(mae)) return;
+  let c;
+  try { c = await api('/api/conversas', { metodo: 'POST', corpo: { motor: mae.motor, cols: 104, rows: 30 } }); } catch (e) { avisar(e.message, 'erro'); return; }
+  if (!ui || mae.id !== ativa) return;
+  espaco.filhas.push({ id: c.id, x: Math.round(pos.x - 150), y: Math.round(pos.y - 60) });
+  espaco.links.push({ a: 'terminal', b: `c:${c.id}` });
+  salvarEspaco();
+  await atualizarEstado();
+  pintarFilhas();
+  pintarLigacoes();
+  avisar('Nova conversa criada e ligada a esta.');
+}
+
+function pintarFilhas() {
+  for (const f of espaco.filhas) {
+    const id = `c:${f.id}`;
+    const c = conversa(f.id);
+    if (!c) continue;
+    const existente = cards.get(id);
+    if (existente) { existente.el.querySelector('.card-titulo').textContent = c.titulo; continue; }
+    criarCard(id, { x: f.x, y: f.y, w: 300, h: 110 }, {
+      icone: 'terminal', titulo: c.titulo, sub: `${c.motorNome} · ligada a esta conversa`, classe: 'card-filha',
+      extras: [el('button', { type: 'button', class: 'bt pequeno', onclick: () => { focarAoAbrir = f.id; trocar(f.id); } }, 'Abrir')],
+    }).corpo.append(el('p', { class: 'dica' }, 'Mesma pasta do cérebro. Clique em Abrir para trabalhar nela.'));
   }
 }
 
@@ -227,6 +370,8 @@ function pintarEspaco() {
   espaco = ler(chaveEspaco(), null) ?? { cam: null, pos: {} };
   if (!espaco.pos) espaco.pos = {};
   if (!Array.isArray(espaco.anexos)) espaco.anexos = []; // arquivos soltos nesta área de trabalho
+  if (!Array.isArray(espaco.links)) espaco.links = []; // ligações feitas pelas bolinhas: { a, b } com ids de cards
+  if (!Array.isArray(espaco.filhas)) espaco.filhas = []; // conversas abertas a partir do prompt desta
   const c = conversa(ativa);
   if (!c) {
     const b = criarCard('boas-vindas', { x: 0, y: 0, ...BOAS_VINDAS }, { icone: 'robo', titulo: 'Bem-vindo', sub: 'Mesa' });
@@ -247,6 +392,7 @@ function pintarEspaco() {
   }
   if (c) atualizarFilhos(c);
   pintarAnexos();
+  pintarFilhas();
   pintarLigacoes();
   if (espaco.cam) aplicarCam(); else requestAnimationFrame(() => { if (ui) centralizar(false); });
 }
@@ -254,19 +400,30 @@ function pintarEspaco() {
 // ---------- arquivos soltos na área de trabalho (vindos de Conteúdos ou do computador) ----------
 const TAM_ANEXO = { imagem: TAM.imagem, video: { w: 280, h: 340 }, arquivo: { w: 260, h: 130 } };
 
+// Cada card de arquivo tem id próprio; cópias (botão Duplicar) do mesmo arquivo ganham o sufixo #k.
+const idAnexo = (a) => `a:${a.caminho}${a.k ? `#${a.k}` : ''}`;
+const caminhoDeId = (id) => id.slice(2).replace(/#\d+$/, '');
+
+function duplicarAnexo(a) {
+  const k = Math.max(0, ...espaco.anexos.filter((o) => o.caminho === a.caminho).map((o) => o.k ?? 0)) + 1;
+  espaco.anexos.push({ caminho: a.caminho, k, x: a.x + 32, y: a.y + 32 });
+  pintarAnexos();
+  salvarEspaco();
+}
+
 function pintarAnexos() {
   for (const a of espaco.anexos) {
-    const id = `a:${a.caminho}`;
+    const id = idAnexo(a);
     if (cards.has(id)) continue;
     const tipo = tipoArquivo(a.caminho);
     const tam = TAM_ANEXO[tipo] ?? TAM_ANEXO.arquivo;
     const card = criarCard(id, { x: a.x, y: a.y, ...tam }, {
-      icone: tipo === 'video' ? 'video' : tipo === 'imagem' ? 'imagem' : 'doc', titulo: nomeBase(a.caminho), sub: conversa(ativa) ? 'ligado a esta conversa' : 'solto na mesa', classe: 'card-midia card-anexo',
+      icone: tipo === 'video' ? 'video' : tipo === 'imagem' ? 'imagem' : 'doc', titulo: nomeBase(a.caminho), sub: 'arraste uma bolinha para ligar', classe: 'card-midia card-anexo',
       extras: [
+        botaoIcone('copiar', 'Duplicar', () => duplicarAnexo(a), 'pequeno'),
         botaoIcone('terminal', 'Enviar ao prompt', () => enviarAoPrompt([a.caminho]), 'pequeno'),
-        botaoIcone('x', 'Tirar da área de trabalho', () => removerAnexo(a.caminho), 'pequeno')],
+        botaoIcone('x', 'Tirar da área de trabalho', () => removerAnexo(a), 'pequeno')],
     });
-    card.filho = 'anexo';
     const conteudo = tipo === 'video' ? el('video', { src: urlArquivo(a.caminho), controls: true, preload: 'metadata', playsInline: true })
       : tipo === 'imagem' ? el('img', { src: urlArquivo(a.caminho), alt: nomeBase(a.caminho), loading: 'lazy', draggable: false })
         : el('span', { class: 'capa-icone' }, icone('doc'), el('small', {}, (/\.([^.]+)$/.exec(a.caminho)?.[1] ?? 'arquivo').toUpperCase()));
@@ -274,10 +431,11 @@ function pintarAnexos() {
   }
 }
 
-function removerAnexo(caminho) {
-  const id = `a:${caminho}`;
-  espaco.anexos = espaco.anexos.filter((a) => a.caminho !== caminho);
+function removerAnexo(anexo) {
+  const id = idAnexo(anexo);
+  espaco.anexos = espaco.anexos.filter((a) => idAnexo(a) !== id);
   delete espaco.pos[id];
+  espaco.links = espaco.links.filter((l) => l.a !== id && l.b !== id);
   cards.get(id)?.el.remove();
   cards.delete(id);
   pintarLigacoes();
@@ -299,7 +457,9 @@ function enviarAoPrompt(caminhos) {
 async function soltarNaArea(e) {
   const dt = e.dataTransfer;
   const caminhos = caminhosDoArrasto(dt);
-  const arquivos = [...(dt.files ?? [])]; // ler antes de qualquer await: depois o navegador esvazia o dataTransfer
+  // ler antes de qualquer await: depois o navegador esvazia o dataTransfer.
+  // Se veio da galeria, ignora dt.files: o navegador anexa uma cópia da imagem arrastada e ela seria enviada de novo (duplicada).
+  const arquivos = caminhos.length ? [] : [...(dt.files ?? [])];
   const noPrompt = !!e.target.closest?.('.card-terminal');
   const ponto = { x: e.clientX, y: e.clientY };
   const alvoId = ativa;
@@ -491,7 +651,8 @@ function montar(corpo) {
   const ligacoes = document.createElementNS(SVG, 'svg');
   ligacoes.setAttribute('class', 'ligacoes');
   ligacoes.setAttribute('aria-hidden', 'true');
-  mundo.append(ligacoes);
+  const alcas = el('div', { class: 'alcas' });
+  mundo.append(ligacoes, alcas);
   const zoom = el('div', { class: 'zoom-indicador', hidden: true });
   const zoomCentro = (fator) => {
     if (!espaco.cam) return;
@@ -502,7 +663,12 @@ function montar(corpo) {
   const palco = el('div', { class: 'palco' }, mundo, zoom, el('div', { class: 'palco-acoes' },
     botaoIcone('mais', 'Aproximar', () => zoomCentro(1.25)),
     botaoIcone('menos', 'Afastar', () => zoomCentro(0.8)),
-    botaoIcone('alvo', 'Centralizar em todos os cards', () => centralizar(true))));
+    botaoIcone('alvo', 'Centralizar em todos os cards', () => centralizar(true)),
+    botaoIcone('lateralDireita', 'Recolher ou mostrar a barra da direita', () => {
+      const recolhida = corpo.classList.toggle('sem-coluna');
+      guardar('colunaRecolhida', recolhida);
+      requestAnimationFrame(() => { for (const T of terminais.values()) if (T.aberto && T.host.isConnected) { try { T.fit.fit(); } catch { /* sem tamanho */ } } });
+    })));
   const listaEl = el('ul', { class: 'conversas-lista' });
   const comece = el('div', { class: 'comece', hidden: true });
   const coluna = el('aside', { class: 'coluna', 'aria-label': 'Lista de conversas' }, comece,
@@ -510,8 +676,9 @@ function montar(corpo) {
     listaEl);
   const seletor = el('div', { class: 'seletor', hidden: true, onclick: (e) => { if (e.target === seletor) fecharSeletor(); } });
   corpo.classList.add('conversas');
+  corpo.classList.toggle('sem-coluna', ler('colunaRecolhida', false) === true);
   corpo.append(palco, coluna, seletor);
-  ui = { palco, mundo, ligacoes, zoom, lista: listaEl, comece, seletor };
+  ui = { palco, mundo, ligacoes, alcas, zoom, lista: listaEl, comece, seletor };
 
   // câmera: arrastar o fundo desloca; rolar desloca; Ctrl ou Cmd mais rolagem dá zoom no ponteiro
   // pinça com dois dedos (celular): aproxima e afasta ao redor do ponto entre os dedos
