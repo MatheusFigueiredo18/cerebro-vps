@@ -242,3 +242,6 @@ export function abrirJanela() {
 }
 
 ouvir('conteudos-alternar', () => (janela ? fecharJanela() : abrirJanela()));
+// a janela só acompanha Conversas, Criação de vídeo e Lousas; em qualquer outra guia ela fecha
+const COM_JANELA = new Set(['conversas', 'video', 'lousa']);
+ouvir('guia-ativa', (g) => { if (janela && !COM_JANELA.has(g?.tipo)) fecharJanela(); });
