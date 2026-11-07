@@ -582,8 +582,11 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-ref img, .video-ref video { width: 100%; height: 100%; min-height: 0; object-fit: contain; border-radius: 8px; background: var(--hover); }
 .video-ref small { color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-prompt { width: 100%; height: 100%; resize: none; border: 0; background: transparent; color: inherit; font: inherit; padding: 10px; outline: none; }
-.video-info, .video-saida { display: grid; gap: 8px; padding: 12px; align-content: start; font-size: 12.5px; color: var(--texto-2); }
-.video-saida { place-content: center; justify-items: center; text-align: center; }
+.video-info { display: grid; gap: 8px; padding: 12px; align-content: start; font-size: 12.5px; color: var(--texto-2); }
+/* Saída: o quadro ocupa o card inteiro, como a miniatura da Referência */
+.video-ref.video-saida { padding: 6px; }
+.video-saida-quadro { display: grid; place-content: center; justify-items: center; gap: 10px; min-height: 0; padding: 14px; text-align: center; font-size: 12.5px; color: var(--texto-2); border-radius: 8px; border: 1px dashed var(--linha); background: linear-gradient(160deg, color-mix(in srgb, var(--t-video) 16%, var(--hover)), var(--hover)); }
+.video-saida-quadro svg { width: 34px; height: 34px; color: var(--t-video); }
 .video-porta { position: absolute; top: 14px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--card); background: var(--texto-3); cursor: crosshair; z-index: 3; }
 .video-porta.e { left: -8px; }
 .video-porta.s { right: -8px; }
@@ -737,3 +740,22 @@ body:is([data-guia="pagina"], [data-guia="banco"], [data-guia="arquivo"]) .area 
 }
 @media (prefers-reduced-transparency: reduce) { .video-sessoes, .video-nos { background-color: var(--painel) !important; background-image: none !important; } }
 @media (max-width: 640px) { .video-sessoes { margin: 0 10px 10px; } .video-nos { max-width: calc(100% - 24px); } }
+
+/* colunas da direita (Conversas, Criação de vídeo, Quadro) flutuantes, com a estética e a borda da barra da esquerda */
+.guia-corpo.conversas .coluna, .lousa-coluna { margin: 10px 10px 10px 0; border: 1px solid var(--linha); border-radius: var(--raio); background: var(--painel); box-shadow: var(--sombra); overflow: auto; }
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .guia-corpo.conversas .coluna, .lousa-coluna {
+    background-color: color-mix(in srgb, var(--acento) 7%, color-mix(in srgb, var(--painel) 52%, transparent));
+    background-image: linear-gradient(150deg, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 42%);
+    -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque);
+    border-color: var(--vidro-borda);
+    box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 10px 30px var(--vidro-sombra-baixo);
+  }
+  :root[data-tema="escuro"] :is(.guia-corpo.conversas .coluna, .lousa-coluna) { background-image: linear-gradient(150deg, rgb(255 255 255 / .1), rgb(255 255 255 / 0) 42%); }
+}
+@media (prefers-reduced-transparency: reduce) { .guia-corpo.conversas .coluna, .lousa-coluna { background-color: var(--painel) !important; background-image: none !important; } }
+@media (max-width: 640px) { .guia-corpo.conversas .coluna { margin: 0 10px 10px; } }
+@media (max-width: 720px) { .guia-corpo.lousa-espaco .lousa-coluna { margin: 0; border-radius: 0; } }
+
+/* com a lateral fechada, a pílula das Funções flutua sobre a esquerda: as ferramentas se afastam dela */
+body.sem-lateral :is(.lousa-ferramentas, .lousa-desfazer, .video-ferramentas) { left: calc(var(--rail) + 4px); }

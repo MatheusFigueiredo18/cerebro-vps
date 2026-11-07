@@ -354,7 +354,10 @@ function montar(corpo) {
         el('button', { type: 'button', class: 'bt primario pequeno', disabled: true, title: 'Entra na fase 3' }, icone('play'), 'Rodar (em breve)'),
         t.opcional ? el('small', {}, 'Desligado: exige plano pago da Magnific e chave da API.') : el('small', {}, 'Liga lista, prompt e referências aqui.'));
     }
-    return el('div', { class: 'video-saida' }, icone('filme'), el('small', {}, 'O vídeo pronto aparece aqui.'));
+    // Mesma estrutura da Referência (quadro que preenche + legenda), para os dois cards combinarem
+    return el('div', { class: 'video-ref video-saida' },
+      el('div', { class: 'video-saida-quadro' }, icone('filme'), el('small', {}, 'O vídeo pronto aparece aqui.')),
+      el('small', {}, 'Aguardando geração'));
   }
 
   function pintarNo(no) {
