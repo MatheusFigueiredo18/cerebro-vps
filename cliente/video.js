@@ -191,7 +191,7 @@ function montar(corpo) {
       const c = no.dados.caminho;
       const tipo = tipoArquivo(c);
       const miniatura = tipo === 'video'
-        ? el('video', { src: urlArquivo(c), controls: true, preload: 'metadata', playsInline: true })
+        ? el('video', { src: `${urlArquivo(c)}#t=0.1`, muted: true, loop: true, preload: 'metadata', playsInline: true, title: 'Passe o mouse para ver a prévia' })
         : el('img', { src: urlArquivo(c), alt: nomeBase(c), draggable: false, loading: 'lazy' });
       return el('div', { class: 'video-ref' }, miniatura, el('small', { title: c }, nomeBase(c)));
     }
