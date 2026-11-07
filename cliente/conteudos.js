@@ -215,10 +215,13 @@ const tecla = (e) => { if (e.key === 'Escape' && $('#visor').hidden) { e.prevent
 export function fecharJanela() {
   if (!janela) return;
   try { vida?.limpar?.(); } catch { /* a janela já está saindo */ }
-  janela.remove();
+  const saindo = janela;
+  saindo.classList.add('saindo'); // desce com animação e só então sai da página; o dock volta junto
+  setTimeout(() => saindo.remove(), 220);
   janela = null;
   vida = null;
   document.removeEventListener('keydown', tecla);
+  document.body.classList.remove('conteudos-aberto');
   emitir('conteudos-janela', { aberta: false });
 }
 
@@ -234,6 +237,7 @@ export function abrirJanela() {
   $('#painel').append(janela);
   vida = montar(corpo);
   document.addEventListener('keydown', tecla);
+  document.body.classList.add('conteudos-aberto');
   emitir('conteudos-janela', { aberta: true });
 }
 

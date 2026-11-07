@@ -527,7 +527,14 @@ input.renomear { width: 100%; font-size: 13px; }
 @media (max-width: 720px) { .coluna { padding-bottom: 76px; } }
 
 /* ---------- Conteúdos como janela no centro, com menos da metade da altura, sem esconder a área de trabalho ---------- */
-.conteudos-janela { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 33; width: min(760px, calc(100vw - 24px)); height: 46vh; min-height: 240px; display: flex; flex-direction: column; border-radius: 14px; background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); overflow: hidden; transition: opacity .15s ease; }
+/* a janela ocupa o lugar do dock: o dock desce e some, a janela sobe da borda de baixo (e faz o caminho inverso ao fechar) */
+.conteudos-janela { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 33; width: min(760px, calc(100vw - 24px)); height: 46vh; min-height: 240px; display: flex; flex-direction: column; border-radius: 14px; background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); overflow: hidden; transition: opacity .15s ease; animation: janela-sobe .26s cubic-bezier(.2, .8, .2, 1); }
+.conteudos-janela.saindo { animation: janela-desce .2s ease-in forwards; pointer-events: none; }
+@keyframes janela-sobe { from { transform: translate(-50%, calc(100% + 24px)); opacity: 0; } }
+@keyframes janela-desce { to { transform: translate(-50%, calc(100% + 24px)); opacity: 0; } }
+.dock { transition: transform .26s cubic-bezier(.2, .8, .2, 1), opacity .2s ease; }
+body.conteudos-aberto .dock { transform: translate(-50%, calc(100% + 28px)); opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .conteudos-janela, .conteudos-janela.saindo { animation: none; } .dock { transition: none; } }
 .conteudos-janela-topo { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--linha); flex: none; }
 .conteudos-janela-topo svg.i { width: 16px; height: 16px; color: var(--texto-2); }
 .conteudos-janela-topo small { flex: 1; min-width: 0; color: var(--texto-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -555,7 +562,7 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .palco.ligando { cursor: crosshair; }
 .card-filha .dica { padding: 10px 12px; margin: 0; font-size: 12.5px; }
 .card-anexo .card-corpo .capa-icone { margin: auto; }
-@media (max-width: 720px) { .conteudos-janela { bottom: 76px; height: 56vh; } }
+@media (max-width: 720px) { .conteudos-janela { bottom: 10px; height: 56vh; } }
 
 /* barra da direita recolhida (botão no canto da área de trabalho) */
 .guia-corpo.conversas.sem-coluna { grid-template-columns: 1fr; grid-template-rows: 1fr; }
