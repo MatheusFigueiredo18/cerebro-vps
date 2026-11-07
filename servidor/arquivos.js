@@ -129,6 +129,72 @@ export function conteudos(vault) {
     .sort(recentes);
 }
 
+// ---------- explorador de Conteúdos: um nível por vez, pastas dentro de pastas ----------
+const RAIZ_CONTEUDO = 'conteudo';
+// Aceita só "conteudo" ou "conteudo/..." sem ".." nem ocultos; devolve o caminho normalizado ou null.
+function relDeConteudo(rel) {
+  const partes = String(rel || RAIZ_CONTEUDO).split(/[\\/]+/).filter(Boolean);
+  if (partes[0] !== RAIZ_CONTEUDO || partes.some((p) => p === '..' || p.startsWith('.'))) return null;
+  return partes.join('/');
+}
+
+const absConteudo = (vault, rel) => (rel === RAIZ_CONTEUDO ? pastaDeEnvio(vault, RAIZ_CONTEUDO) : resolverNoVault(vault, rel));
+
+export function listarNivel(vault, rel) {
+  const limpo = relDeConteudo(rel);
+  const dir = limpo && absConteudo(vault, limpo);
+  if (!dir || !fs.statSync(dir).isDirectory()) return null;
+  const itens = lerDir(dir).filter(deConteudo).filter((d) => d.isDirectory() || d.isFile()).map((d) => {
+    const item = itemDeConteudo(vault, path.join(dir, d.name), d);
+    if (d.isFile()) item.tamanho = fs.statSync(path.join(dir, d.name)).size;
+    return item;
+  });
+  // pastas primeiro (ordem natural), depois arquivos do mais novo para o mais antigo
+  itens.sort((a, b) => (b.pasta - a.pasta) || (a.pasta ? natural.compare(a.nome, b.nome) : b.mtime - a.mtime));
+  return { caminho: limpo, itens };
+}
+
+// Move um arquivo ou pasta de conteudo/ para outra pasta de conteudo/ (nunca sobrescreve: renomeia com -2, -3...).
+export function moverConteudo(vault, de, paraPasta) {
+  const origem = relDeConteudo(de);
+  const destino = relDeConteudo(paraPasta);
+  if (!origem || !destino || origem === RAIZ_CONTEUDO) throw new Error('caminho inválido');
+  const absOrigem = resolverNoVault(vault, origem);
+  const absDestino = absConteudo(vault, destino);
+  if (!absOrigem) throw Object.assign(new Error('não encontrado'), { code: 'ENOENT' });
+  if (!absDestino || !fs.statSync(absDestino).isDirectory()) throw new Error('pasta de destino inválida');
+  if (absDestino === absOrigem || absDestino.startsWith(absOrigem + path.sep)) throw new Error('inválida: uma pasta não cabe dentro dela mesma');
+  const novo = destinoLivre(absDestino, path.basename(origem));
+  fs.renameSync(absOrigem, novo);
+  return { caminho: relDe(vault, novo) };
+}
+
+export function renomearConteudo(vault, de, nome) {
+  const origem = relDeConteudo(de);
+  const novoNome = nomeDeEnvio(nome);
+  if (!origem || origem === RAIZ_CONTEUDO) throw new Error('caminho inválido');
+  if (!novoNome) throw new Error('nome inválido');
+  const absOrigem = resolverNoVault(vault, origem);
+  if (!absOrigem) throw Object.assign(new Error('não encontrado'), { code: 'ENOENT' });
+  const novo = path.join(path.dirname(absOrigem), novoNome);
+  if (novo !== absOrigem && fs.existsSync(novo)) throw Object.assign(new Error('já existe um item com esse nome'), { code: 'CONFLITO' });
+  fs.renameSync(absOrigem, novo);
+  return { caminho: relDe(vault, novo) };
+}
+
+// Apagar nunca destrói: vai para .trash/ na raiz do cérebro (oculto na árvore e no grafo), com a data no nome.
+export function apagarConteudo(vault, de) {
+  const origem = relDeConteudo(de);
+  if (!origem || origem === RAIZ_CONTEUDO) throw new Error('caminho inválido');
+  const absOrigem = resolverNoVault(vault, origem);
+  if (!absOrigem) throw Object.assign(new Error('não encontrado'), { code: 'ENOENT' });
+  const lixeira = path.join(vault, '.trash');
+  fs.mkdirSync(lixeira, { recursive: true });
+  const novo = destinoLivre(lixeira, `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${path.basename(origem)}`);
+  fs.renameSync(absOrigem, novo);
+  return { ok: true };
+}
+
 // ---------- grafo ----------
 const semMd = (nome) => nome.replace(/\.md$/i, '');
 const decodificar = (s) => { try { return decodeURIComponent(s); } catch { return s; } };

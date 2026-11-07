@@ -188,6 +188,52 @@ test('envio: pasta padrão, colisão, nome limpo, inválidos e marca de dono', a
   assert.ok(s.enviadosPeloDono.has(path.join(s.cfg.vault, 'conteudo', 'enviados', 'foto.png')));
 });
 
+test('explorador de conteúdos: pastas dentro de pastas, mover sem sobrescrever e recusas', async (t) => {
+  const s = await subir();
+  t.after(() => s.fechar());
+  const cookie = await entrar(s.base);
+  const pedir = (rota, metodo = 'GET', corpo) => fetch(`${s.base}${rota}`, { method: metodo, headers: { cookie, ...(corpo ? { 'content-type': 'application/json' } : {}) }, body: corpo ? JSON.stringify(corpo) : undefined });
+  const nivel = async (c) => (await pedir(`/api/conteudos/nivel?caminho=${encodeURIComponent(c)}`)).json();
+  escrever(s.cfg.vault, 'conteudo/solta.png', 'x');
+  escrever(s.cfg.vault, 'conteudo/clientes/ana/foto.png', 'y');
+
+  // criar pasta dentro de pasta (rota que já existe) e ver só o nível pedido, pastas antes de arquivos
+  assert.equal((await pedir('/api/pastas', 'POST', { pasta: 'conteudo/clientes', nome: 'Bia' })).status, 200);
+  const raiz = await nivel('conteudo');
+  assert.deepEqual(raiz.itens.map((i) => [i.nome, i.pasta]), [['clientes', true], ['solta.png', false]]);
+  assert.deepEqual((await nivel('conteudo/clientes')).itens.map((i) => i.nome), ['ana', 'Bia']);
+
+  // mover arquivo e pasta; destino ocupado renomeia em vez de sobrescrever
+  const mover = (de, para) => pedir('/api/conteudos/mover', 'POST', { de, para });
+  assert.deepEqual(await (await mover('conteudo/solta.png', 'conteudo/clientes/Bia')).json(), { caminho: 'conteudo/clientes/Bia/solta.png' });
+  escrever(s.cfg.vault, 'conteudo/solta.png', 'z');
+  assert.deepEqual(await (await mover('conteudo/solta.png', 'conteudo/clientes/Bia')).json(), { caminho: 'conteudo/clientes/Bia/solta-2.png' });
+  assert.equal((await mover('conteudo/clientes/Bia', 'conteudo/clientes/ana')).status, 200);
+  assert.ok(fs.existsSync(path.join(s.cfg.vault, 'conteudo/clientes/ana/Bia/solta.png')));
+
+  // recusas: pasta dentro dela mesma, fora de conteudo/, ".." e raiz
+  assert.equal((await mover('conteudo/clientes', 'conteudo/clientes/ana')).status, 400);
+  assert.equal((await mover('conteudo/clientes/ana/foto.png', 'docs')).status, 400);
+  assert.equal((await mover('conteudo/../docs', 'conteudo')).status, 400);
+  assert.equal((await mover('conteudo', 'conteudo/clientes')).status, 400);
+  assert.equal((await mover('conteudo/nao-existe', 'conteudo')).status, 404);
+  assert.equal((await pedir('/api/conteudos/nivel?caminho=docs')).status, 404);
+
+  // renomear: mesmo lugar, sem sobrescrever, sem sair da pasta; apagar vai para .trash/
+  const renomear = (de, nome) => pedir('/api/conteudos/renomear', 'POST', { de, nome });
+  assert.deepEqual(await (await renomear('conteudo/clientes/ana/foto.png', 'retrato.png')).json(), { caminho: 'conteudo/clientes/ana/retrato.png' });
+  escrever(s.cfg.vault, 'conteudo/clientes/ana/outra.png', 'o');
+  assert.equal((await renomear('conteudo/clientes/ana/outra.png', 'retrato.png')).status, 409);
+  assert.equal((await renomear('conteudo/clientes/ana/outra.png', '.oculto')).status, 400);
+  assert.equal((await renomear('conteudo', 'x')).status, 400);
+  assert.deepEqual(await (await renomear('conteudo/clientes/ana/outra.png', '../../fugiu.png')).json(), { caminho: 'conteudo/clientes/ana/fugiu.png' });
+  assert.equal((await pedir('/api/conteudos/apagar', 'POST', { de: 'conteudo/clientes/ana' })).status, 200);
+  assert.ok(!fs.existsSync(path.join(s.cfg.vault, 'conteudo/clientes/ana')));
+  assert.ok(fs.readdirSync(path.join(s.cfg.vault, '.trash')).some((n) => n.endsWith('-ana')));
+  assert.equal((await pedir('/api/conteudos/apagar', 'POST', { de: 'docs' })).status, 400);
+  assert.equal((await pedir('/api/conteudos/apagar', 'POST', { de: 'conteudo' })).status, 400);
+});
+
 const temFfmpeg = spawnSync('ffmpeg', ['-version']).status === 0;
 
 test('capa de vídeo: gera, guarda em cache e recusa o que não é vídeo', { skip: !temFfmpeg && 'ffmpeg ausente' }, async (t) => {

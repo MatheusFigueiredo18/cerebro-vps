@@ -368,6 +368,14 @@ div.bloco-texto:empty:focus::before { content: attr(data-ph); color: var(--texto
 .selo-play svg.i { fill: currentColor; width: 16px; height: 16px; }
 .capa-icone { display: grid; justify-items: center; gap: 4px; color: var(--texto-3); }
 .capa-icone svg.i { width: 34px; height: 34px; }
+.cartao-acoes { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; margin-top: 2px; opacity: 0; transition: opacity .12s ease; }
+.cartao-arrastavel:hover .cartao-acoes, .cartao-arrastavel:focus-within .cartao-acoes { opacity: 1; }
+@media (hover: none) { .cartao-acoes { opacity: 1; } }
+.cartao-acoes .perigo { color: #c0392b; }
+input.renomear { width: 100%; font-size: 13px; }
+.nova-pasta { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; max-width: 460px; }
+.nova-pasta input { flex: 1; min-width: 0; }
+.alvo-soltar .cartao-capa, .trilha .alvo-soltar { outline: 2px dashed var(--acento); outline-offset: 2px; background: var(--selecao); }
 .miniaturas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .miniatura { display: grid; gap: 4px; }
 .miniatura-info { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 4px; font-size: 12px; }

@@ -13,7 +13,7 @@ import { criarEvolution } from './evolution.js';
 import { MOTORES, localizar, lerPreferencias, gravarPreferencias } from './motores.js';
 import { extras, PRIMEIROS_TESTES } from './catalogo.js';
 import { criarAuth, lerCookie, iguaisSeguro } from './auth.js';
-import { resolverNoVault, arvore, listarPasta, conteudos, grafo, tipoMidia, relDe, nomeDeEnvio, pastaDeEnvio, destinoLivre } from './arquivos.js';
+import { resolverNoVault, arvore, listarPasta, conteudos, grafo, tipoMidia, relDe, nomeDeEnvio, pastaDeEnvio, destinoLivre, listarNivel, moverConteudo, renomearConteudo, apagarConteudo } from './arquivos.js';
 import { criarCapas } from './capas.js';
 import { criarPagina, criarPasta, lerPagina, salvarPagina, buscar } from './paginas.js';
 import { criarBanco, lerBanco, criarLinha, salvarProp, salvarEsquema } from './bancos.js';
@@ -147,6 +147,13 @@ export function criarServidor(cfg, deps = {}) {
   };
   app.post('/api/paginas', rotaVault((b) => criarPagina(vault, b.pasta, b.titulo)));
   app.post('/api/pastas', rotaVault((b) => criarPasta(vault, b.pasta, b.nome)));
+  app.get('/api/conteudos/nivel', (req, res) => {
+    const nivel = listarNivel(vault, req.query.caminho);
+    return nivel ? res.json(nivel) : naoEncontrado(res);
+  });
+  app.post('/api/conteudos/mover', rotaVault((b) => moverConteudo(vault, b.de, b.para)));
+  app.post('/api/conteudos/renomear', rotaVault((b) => renomearConteudo(vault, b.de, b.nome)));
+  app.post('/api/conteudos/apagar', rotaVault((b) => apagarConteudo(vault, b.de)));
   app.get('/api/pagina', rotaVault((b, q) => lerPagina(vault, q.caminho)));
   app.put('/api/pagina', express.json({ limit: '3mb' }), rotaVault((b) => salvarPagina(vault, b.caminho, b.texto, b.mtime)));
   app.get('/api/busca', rotaVault((b, q) => buscar(vault, q.q)));
