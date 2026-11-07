@@ -124,9 +124,10 @@ function montar(corpo) {
   // O item vai para a lixeira do cérebro (.trash), não some de vez.
   function lixeiraBt(item, envoltorio) {
     const fechar = () => envoltorio.querySelector('.confirma-apagar')?.remove();
-    const bt = el('button', { type: 'button', class: 'cartao-lixo', title: 'Apagar (vai para a lixeira do cérebro)', 'aria-label': `Apagar ${item.nome}` }, icone('lixeira'));
+    const bt = el('button', { type: 'button', class: 'cartao-lixo', title: item.pasta ? 'Apagar a pasta (pede confirmação)' : 'Apagar (vai para a lixeira do cérebro)', 'aria-label': `Apagar ${item.nome}` }, icone('lixeira'));
     bt.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (!item.pasta) { acao('/api/conteudos/apagar', { de: item.caminho }); return; } // arquivo: apaga direto (vai para a .trash); pasta continua pedindo confirmação
       if (envoltorio.querySelector('.confirma-apagar')) { fechar(); return; }
       const o = item.pasta ? `a pasta e ${item.arquivos} arquivo${item.arquivos === 1 ? '' : 's'} dentro` : 'o arquivo';
       const sim = el('button', { type: 'button', class: 'bt perigo pequeno', onclick: async () => { sim.disabled = true; if (!await acao('/api/conteudos/apagar', { de: item.caminho })) { sim.disabled = false; fechar(); } } }, 'Apagar');
