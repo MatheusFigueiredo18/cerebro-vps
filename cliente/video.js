@@ -332,6 +332,7 @@ function montar(corpo) {
   // ---------- mover o canvas, zoom e soltar arquivos ----------
   palco.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || !ativa || e.target.closest('.video-no, .palco-acoes, .video-nos, button, .video-vazio .bt')) return;
+    e.preventDefault(); // mover o canvas não seleciona texto
     const ini = { x: e.clientX, y: e.clientY, cx: grafo.cam.x, cy: grafo.cam.y };
     palco.setPointerCapture(e.pointerId);
     palco.classList.add('arrastando');
