@@ -43,7 +43,7 @@ export function abrirFuncao(id) {
   if (!f) return;
   if (id === 'conteudos') {
     // Conteúdos é uma janela flutuante sobre a área de trabalho das conversas (para arrastar arquivos para lá)
-    if (shell.ativa()?.tipo !== 'conversas') shell.abrir({ id: 'f:conversas', tipo: 'conversas', titulo: 'Conversas' });
+    if (!['conversas', 'video'].includes(shell.ativa()?.tipo)) shell.abrir({ id: 'f:conversas', tipo: 'conversas', titulo: 'Conversas' }); // a galeria também flutua sobre a Criação de vídeo
     emitir('conteudos-alternar');
     return;
   }

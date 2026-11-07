@@ -568,18 +568,35 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .guia-corpo.conversas.sem-coluna { grid-template-columns: 1fr; grid-template-rows: 1fr; }
 .guia-corpo.conversas.sem-coluna .coluna { display: none; }
 
-/* Criação de vídeo (fase 1): sessões na barra da direita, tipos de nó sobre o canvas */
-.guia-corpo.video-espaco { overflow: hidden; display: grid; grid-template-columns: 1fr 300px; }
+/* Criação de vídeo: sessões na barra da direita, nós sobre o canvas */
+.guia-corpo.video-espaco { --t-midia: #2fae78; --t-lista: #6f86ef; --t-texto: #d99a1c; --t-video: #e0558a; overflow: hidden; display: grid; grid-template-columns: 1fr 300px; }
 .guia-corpo.video-espaco.sem-coluna { grid-template-columns: 1fr; }
 .guia-corpo.video-espaco.sem-coluna .video-sessoes { display: none; }
-.video-vazio { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 24px; }
+.video-vazio { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 24px; pointer-events: none; }
+.video-vazio .bt { pointer-events: auto; }
 .video-vazio h2 { margin: 0; font-size: 20px; }
 .video-vazio p { margin: 0; max-width: 46ch; color: var(--texto-2); }
 .video-vazio-icone { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--painel); border: 1px solid var(--linha); color: var(--acento); }
-.video-nos { position: absolute; left: 12px; right: 56px; top: 12px; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
-.video-no-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--painel); font-size: 12px; font-weight: 600; opacity: .85; }
+.video-nos { position: absolute; left: 12px; right: 56px; top: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; }
+.video-no-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--painel); color: inherit; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.video-no-chip:hover { border-color: var(--acento); }
 .video-no-chip small { font-weight: 400; color: var(--texto-2); }
 .video-no-chip.c-opc { border-style: dashed; }
+.card.video-no { overflow: visible; }
+.card.video-no.opc { border-style: dashed; }
+.video-no .card-corpo { overflow: hidden; border-radius: 0 0 13px 13px; display: grid; }
+.video-ref { display: grid; grid-template-rows: 1fr auto; gap: 4px; padding: 6px; min-height: 0; }
+.video-ref img, .video-ref video { width: 100%; height: 100%; min-height: 0; object-fit: contain; border-radius: 8px; background: var(--hover); }
+.video-ref small { color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-prompt { width: 100%; height: 100%; resize: none; border: 0; background: transparent; color: inherit; font: inherit; padding: 10px; outline: none; }
+.video-info, .video-saida { display: grid; gap: 8px; padding: 12px; align-content: start; font-size: 12.5px; color: var(--texto-2); }
+.video-saida { place-content: center; justify-items: center; text-align: center; }
+.video-porta { position: absolute; top: 14px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--card); background: var(--texto-3); cursor: crosshair; z-index: 3; }
+.video-porta.e { left: -8px; }
+.video-porta.s { right: -8px; }
+.palco.ligando .video-porta.e { box-shadow: 0 0 0 3px var(--halo); }
+.video-fio { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.video-fio.provisoria { stroke-dasharray: 4 7; opacity: .8; }
 .video-lista { list-style: none; margin: 0; padding: 0 8px 16px; overflow: auto; flex: 1; display: grid; gap: 6px; align-content: start; }
 .video-sessao { display: flex; align-items: center; gap: 6px; border: 1px solid var(--linha); border-radius: 10px; background: var(--fundo); padding: 4px 6px 4px 4px; }
 .video-sessao.ativa { border-color: var(--acento); }
