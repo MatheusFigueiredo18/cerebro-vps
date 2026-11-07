@@ -567,3 +567,23 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 /* barra da direita recolhida (botão no canto da área de trabalho) */
 .guia-corpo.conversas.sem-coluna { grid-template-columns: 1fr; grid-template-rows: 1fr; }
 .guia-corpo.conversas.sem-coluna .coluna { display: none; }
+
+/* Criação de vídeo (fase 1): sessões na barra da direita, tipos de nó sobre o canvas */
+.guia-corpo.video-espaco { overflow: hidden; display: grid; grid-template-columns: 1fr 300px; }
+.guia-corpo.video-espaco.sem-coluna { grid-template-columns: 1fr; }
+.guia-corpo.video-espaco.sem-coluna .video-sessoes { display: none; }
+.video-vazio { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 24px; }
+.video-vazio h2 { margin: 0; font-size: 20px; }
+.video-vazio p { margin: 0; max-width: 46ch; color: var(--texto-2); }
+.video-vazio-icone { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--painel); border: 1px solid var(--linha); color: var(--acento); }
+.video-nos { position: absolute; left: 12px; right: 56px; top: 12px; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.video-no-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--painel); font-size: 12px; font-weight: 600; opacity: .85; }
+.video-no-chip small { font-weight: 400; color: var(--texto-2); }
+.video-no-chip.c-opc { border-style: dashed; }
+.video-lista { list-style: none; margin: 0; padding: 0 8px 16px; overflow: auto; flex: 1; display: grid; gap: 6px; align-content: start; }
+.video-sessao { display: flex; align-items: center; gap: 6px; border: 1px solid var(--linha); border-radius: 10px; background: var(--fundo); padding: 4px 6px 4px 4px; }
+.video-sessao.ativa { border-color: var(--acento); }
+.video-sessao-abrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: 6px; cursor: pointer; }
+.video-sessao-abrir span { display: grid; min-width: 0; }
+.video-sessao-abrir small { color: var(--texto-2); }
+@media (max-width: 640px) { .guia-corpo.video-espaco { grid-template-columns: 1fr; grid-template-rows: 1fr 40%; } .guia-corpo.video-espaco.sem-coluna { grid-template-rows: 1fr; } .video-sessoes { border-left: 0; border-top: 1px solid var(--linha); } }

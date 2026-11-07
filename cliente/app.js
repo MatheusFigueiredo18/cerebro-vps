@@ -11,6 +11,7 @@ import './conversas.js';
 import './conteudos.js';
 import './whatsapp.js';
 import './n8n.js';
+import './video.js';
 
 // ---------- tema: começa pelo sistema; a escolha manual fica no navegador ----------
 const temaAtual = () => document.documentElement.dataset.tema
