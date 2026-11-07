@@ -44,7 +44,9 @@ const bt = (cls, titulo, nome, onclick, extra = {}) => el('button', { type: 'but
 
 function montar(corpo) {
   corpo.classList.add('lousa-espaco');
-  corpo.classList.toggle('sem-coluna', ler('lousaColunaRecolhida', false) === true);
+  const estreita = () => window.matchMedia('(max-width: 820px)').matches;
+  const GROSSO = window.matchMedia('(pointer: coarse)').matches; // dedo: alvos maiores
+  corpo.classList.toggle('sem-coluna', ler('lousaColunaRecolhida', estreita()) === true);
   const prefs = ler('lousaPrefs', {});
   const S = {
     ferr: 'select', sel: [], grade: prefs.grade !== false, mini: prefs.mini === true, er: 20, penIdx: 0, espaco: false,
@@ -66,7 +68,7 @@ function montar(corpo) {
   const tela = el('canvas', { class: 'lousa-tela', 'aria-label': 'Quadro infinito de desenho livre' });
   const g = tela.getContext('2d');
   const mini = el('canvas', { class: 'lousa-mini lousa-painel', 'aria-label': 'Minimapa' });
-  const vazio = el('div', { class: 'lousa-vazio', hidden: true }, el('b', {}, 'Quadro em branco'), 'Escolha a caneta (P) e desenhe, ou aperte N para um post-it. Dê dois cliques para escrever um texto.');
+  const vazio = el('div', { class: 'lousa-vazio', hidden: true }, el('b', {}, 'Quadro em branco'), GROSSO ? 'Escolha a caneta lá embaixo e desenhe com o dedo. Toque duas vezes num espaço vazio para escrever.' : 'Escolha a caneta (P) e desenhe, ou aperte N para um post-it. Dê dois cliques para escrever um texto.');
   const barra = el('nav', { class: 'lousa-ferramentas lousa-painel', 'aria-label': 'Ferramentas' });
   const gavetaFormas = el('div', { class: 'lousa-gaveta lousa-painel', hidden: true });
   const gavetaLinhas = el('div', { class: 'lousa-gaveta lousa-painel', hidden: true });
@@ -90,14 +92,17 @@ function montar(corpo) {
   const btnRecarregar = el('button', { type: 'button', class: 'bt pequeno', hidden: true, onclick: () => abrir(cur.id, true) }, 'Recarregar');
   const statusEl = el('div', { class: 'lousa-status', role: 'status', dados: { s: 'ok' } }, el('span', { class: 'lousa-ponto' }), statusTxt, btnRecarregar);
   const topo = el('div', { class: 'lousa-topo lousa-painel' }, titulo, statusEl,
-    el('button', { type: 'button', class: 'bt pequeno', title: 'Exportar como imagem PNG', onclick: () => abrirExportar() }, icone('baixar'), 'Exportar'),
-    el('button', { type: 'button', class: 'bt pequeno', title: 'Atalhos de teclado (?)', onclick: () => abrirAtalhos() }, icone('ajuda'), 'Atalhos'),
+    el('button', { type: 'button', class: 'bt pequeno', title: 'Exportar como imagem PNG', onclick: () => abrirExportar() }, icone('baixar'), el('span', { class: 'lousa-rot' }, 'Exportar')),
+    el('button', { type: 'button', class: 'bt pequeno', title: 'Atalhos de teclado (?)', onclick: () => abrirAtalhos() }, icone('ajuda'), el('span', { class: 'lousa-rot' }, 'Atalhos')),
     bt('bt-icone', 'Recolher ou mostrar a lista de quadros', 'lateralDireita', () => guardar('lousaColunaRecolhida', corpo.classList.toggle('sem-coluna'))));
   const cartao = el('div', { class: 'lousa-cartao lousa-painel', hidden: ler('lousaDica', false) === true },
     bt('bt-icone pequeno lousa-cartao-x', 'Fechar dicas', 'x', () => { cartao.hidden = true; guardar('lousaDica', true); }),
     el('h2', {}, 'Comece em 4 passos'),
-    el('ul', {}, el('li', {}, el('b', {}, 'Desenhar: '), 'escolha a caneta e arraste.'), el('li', {}, el('b', {}, 'Errou? '), 'Ctrl+Z ou a seta curva, embaixo à esquerda.'),
-      el('li', {}, el('b', {}, 'Mover o quadro: '), 'segure Espaço e arraste, ou use a mão.'), el('li', {}, el('b', {}, 'Tudo salva sozinho: '), 'veja o aviso "Salvo" no topo.')));
+    GROSSO
+      ? el('ul', {}, el('li', {}, el('b', {}, 'Desenhar: '), 'escolha a caneta embaixo e arraste o dedo.'), el('li', {}, el('b', {}, 'Errou? '), 'toque na seta curva, no alto à esquerda.'),
+        el('li', {}, el('b', {}, 'Mover e dar zoom: '), 'use dois dedos (pinça), ou a mão.'), el('li', {}, el('b', {}, 'Lista de quadros: '), 'toque no ícone do canto de cima, à direita.'))
+      : el('ul', {}, el('li', {}, el('b', {}, 'Desenhar: '), 'escolha a caneta e arraste.'), el('li', {}, el('b', {}, 'Errou? '), 'Ctrl+Z ou a seta curva, embaixo à esquerda.'),
+        el('li', {}, el('b', {}, 'Mover o quadro: '), 'segure Espaço e arraste, ou use a mão.'), el('li', {}, el('b', {}, 'Tudo salva sozinho: '), 'veja o aviso "Salvo" no topo.')));
   const expImg = el('img', { class: 'lousa-exp-img', alt: 'Pré-visualização da exportação' });
   const expInfo = el('span', { class: 'lousa-exp-info' });
   const expTudo = el('input', { type: 'radio', name: 'lousa-exp', value: 'tudo', checked: true, onchange: () => renderExport() });
@@ -144,7 +149,7 @@ function montar(corpo) {
   observador.observe(palco);
   const porId = () => G.porIdDe(objs);
   const porIdFn = (id) => objs.find((o) => o.id === id) ?? null;
-  const tol = () => 6 / cam.z;
+  const tol = () => (GROSSO ? 14 : 6) / cam.z;
   const paraTela = (x, y) => [x * cam.z + cam.x, y * cam.z + cam.y];
   const paraMundo = (x, y) => [(x - cam.x) / cam.z, (y - cam.y) / cam.z];
   const selObjs = () => S.sel.map(porIdFn).filter(Boolean);
@@ -221,7 +226,7 @@ function montar(corpo) {
   function alcas() {
     const b = selCaixa(); if (!b) return null;
     const a = paraTela(b.x, b.y); const z = paraTela(b.x + b.w, b.y + b.h);
-    return { pts: [[a[0], a[1]], [z[0], a[1]], [z[0], z[1]], [a[0], z[1]]], rot: [(a[0] + z[0]) / 2, a[1] - 28], x0: a[0], y0: a[1], x1: z[0] };
+    return { pts: [[a[0], a[1]], [z[0], a[1]], [z[0], z[1]], [a[0], z[1]]], rot: [(a[0] + z[0]) / 2, a[1] - (GROSSO ? 40 : 28)], x0: a[0], y0: a[1], x1: z[0] };
   }
   // o X de excluir fica no canto de cima, à direita, de cada nota adesiva
   const xDaNota = (o) => { const c = G.cantos(o)[1]; return paraTela(c[0], c[1]); };
@@ -229,8 +234,8 @@ function montar(corpo) {
     g.save(); g.setTransform(DPR, 0, 0, DPR, 0, 0); g.lineWidth = 1.6; g.lineCap = 'round';
     for (const o of objs) {
       if (o.t !== 'sticky' || o.lock) continue;
-      const [x, y] = xDaNota(o); g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fillStyle = TH.quadro; g.fill(); g.strokeStyle = TH.mudo; g.stroke();
-      g.beginPath(); g.moveTo(x - 3.5, y - 3.5); g.lineTo(x + 3.5, y + 3.5); g.moveTo(x + 3.5, y - 3.5); g.lineTo(x - 3.5, y + 3.5); g.stroke();
+      const [x, y] = xDaNota(o); const rb = GROSSO ? 13 : 9; const k = GROSSO ? 5 : 3.5; g.beginPath(); g.arc(x, y, rb, 0, Math.PI * 2); g.fillStyle = TH.quadro; g.fill(); g.strokeStyle = TH.mudo; g.stroke();
+      g.beginPath(); g.moveTo(x - k, y - k); g.lineTo(x + k, y + k); g.moveTo(x + k, y - k); g.lineTo(x - k, y + k); g.stroke();
     }
     g.restore();
   }
@@ -246,8 +251,8 @@ function montar(corpo) {
       const h = alcas();
       if (h && !selObjs().every((o) => o.lock)) {
         g.setLineDash([]); g.beginPath(); g.moveTo((h.x0 + h.x1) / 2, h.y0); g.lineTo(h.rot[0], h.rot[1]); g.stroke();
-        g.fillStyle = TH.quadro; for (const p of h.pts) { g.beginPath(); g.rect(p[0] - 5, p[1] - 5, 10, 10); g.fill(); g.stroke(); }
-        g.beginPath(); g.arc(h.rot[0], h.rot[1], 6, 0, Math.PI * 2); g.fill(); g.stroke();
+        const hs = GROSSO ? 9 : 5; g.fillStyle = TH.quadro; for (const p of h.pts) { g.beginPath(); g.rect(p[0] - hs, p[1] - hs, hs * 2, hs * 2); g.fill(); g.stroke(); }
+        g.beginPath(); g.arc(h.rot[0], h.rot[1], GROSSO ? 10 : 6, 0, Math.PI * 2); g.fill(); g.stroke();
       }
     }
     if (arrasto?.tipo === 'marquee') { g.fillStyle = 'rgba(47,91,211,.10)'; g.fillRect(arrasto.sx, arrasto.sy, arrasto.cx - arrasto.sx, arrasto.cy - arrasto.sy); g.strokeRect(arrasto.sx, arrasto.sy, arrasto.cx - arrasto.sx, arrasto.cy - arrasto.sy); }
@@ -276,7 +281,7 @@ function montar(corpo) {
   // ---------- zoom ----------
   function zoomCentro(f) { cam = zoomEm(cam, W / 2, H / 2, f, ...ZOOM); redesenhar(); salvarSoon(); }
   function ajustarA(rets, margem) {
-    cam = rets ? enquadrar([rets], { x: 64, y: 56, w: W - 74, h: H - 66 }, margem, 2) : { x: W / 2 - 300, y: H / 2 - 200, z: 1 }; redesenhar(); salvarSoon();
+    cam = rets ? enquadrar([rets], estreita() ? { x: 8, y: 58, w: W - 16, h: H - 140 } : { x: 64, y: 56, w: W - 74, h: H - 66 }, margem, 2) : { x: W / 2 - 300, y: H / 2 - 200, z: 1 }; redesenhar(); salvarSoon();
   }
   const ajustar = () => ajustarA(G.uniao(objs, porId()), 50);
   const ajustarSel = () => { const b = selCaixa(); if (b) ajustarA(b, 70); else ajustar(); };
@@ -351,11 +356,12 @@ function montar(corpo) {
       cur = { id: l.id, titulo: l.titulo, versao: l.versao }; objs = l.objs; cam = l.vista ?? { x: 80, y: 80, z: 1 };
       S.sel = []; hist = [JSON.stringify(objs)]; hi = 0; falhou = false; sujo = false; editando = null; editor.hidden = true; vivo = null;
       titulo.value = cur.titulo; titulo.disabled = false; status('ok', 'Salvo'); guardar('lousaAtiva', id);
+      if (estreita()) corpo.classList.add('sem-coluna'); // no celular a lista fecha e o quadro aparece
       botoes(); escolherFerr('select'); pintarCtx(); carregarLista(); redesenhar();
     } catch (e) { avisar(e.message, 'erro'); if (e.status === 404) { guardar('lousaAtiva', null); carregarLista(); } }
   }
   async function novaLousa() {
-    try { const l = await api('/api/lousas', { metodo: 'POST', corpo: { titulo: 'Quadro sem título' } }); await abrir(l.id); titulo.focus(); titulo.select(); }
+    try { const l = await api('/api/lousas', { metodo: 'POST', corpo: { titulo: 'Quadro sem título' } }); await abrir(l.id); if (!GROSSO) { titulo.focus(); titulo.select(); } }
     catch (e) { avisar(e.message, 'erro'); }
   }
   async function duplicar(id) {
@@ -445,8 +451,8 @@ function montar(corpo) {
   const ptr = (e) => { const r = tela.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   function alcaEm(p) {
     const h = alcas(); if (!h || selObjs().every((o) => o.lock)) return null;
-    if (Math.hypot(p[0] - h.rot[0], p[1] - h.rot[1]) < 11) return 'rot';
-    for (let i = 0; i < 4; i++) if (Math.abs(p[0] - h.pts[i][0]) < 9 && Math.abs(p[1] - h.pts[i][1]) < 9) return i;
+    if (Math.hypot(p[0] - h.rot[0], p[1] - h.rot[1]) < (GROSSO ? 24 : 11)) return 'rot';
+    for (let i = 0; i < 4; i++) if (Math.abs(p[0] - h.pts[i][0]) < (GROSSO ? 20 : 9) && Math.abs(p[1] - h.pts[i][1]) < (GROSSO ? 20 : 9)) return i;
     return null;
   }
   function apagarEm(p) {
@@ -460,7 +466,7 @@ function montar(corpo) {
   tela.addEventListener('pointerdown', (e) => {
     if (!cur) return;
     if (editando) fimEdicao(); fecharPop(); menu.hidden = true;
-    const p = ptr(e); pontos.set(e.pointerId, p); tela.setPointerCapture(e.pointerId);
+    const p = ptr(e); pontos.set(e.pointerId, p); tela.setPointerCapture(e.pointerId); toqueIni = { x: p[0], y: p[1], t: Date.now() };
     if (e.pointerType === 'touch' && pontos.size === 2) { const [a, b] = [...pontos.values()]; arrasto = { tipo: 'pinca', a0: { x: a[0], y: a[1] }, b0: { x: b[0], y: b[1] }, cam0: { ...cam } }; vivo = null; redesenhar(); return; }
     if (arrasto?.tipo === 'pinca') return;
     const w = paraMundo(p[0], p[1]); const t = S.ferr;
@@ -470,7 +476,7 @@ function montar(corpo) {
     if (t === 'select') {
       for (let i = objs.length - 1; i >= 0; i--) { // X da nota adesiva: exclui na hora (Ctrl+Z volta)
         const o = objs[i]; if (o.t !== 'sticky' || o.lock) continue;
-        const [x, y] = xDaNota(o); if (Math.hypot(p[0] - x, p[1] - y) < 11) { S.sel = [o.id]; excluirSel(); return; }
+        const [x, y] = xDaNota(o); if (Math.hypot(p[0] - x, p[1] - y) < (GROSSO ? 20 : 11)) { S.sel = [o.id]; excluirSel(); return; }
       }
       const al = alcaEm(p);
       if (al !== null) { const l = selObjs().filter((o) => !o.lock); const b = G.uniao(l, pid); arrasto = { tipo: al === 'rot' ? 'girar' : 'redim', al, caixa: b, snap: l.map((o) => [o, structuredClone(o)]), a0: Math.atan2(w[1] - (b.y + b.h / 2), w[0] - (b.x + b.w / 2)) }; return; }
@@ -532,6 +538,10 @@ function montar(corpo) {
     pontos.delete(e.pointerId);
     if (arrasto?.tipo === 'pinca') { if (pontos.size < 2) { arrasto = null; salvarSoon(); } return; }
     const a = arrasto; if (!a) return; arrasto = null; tela.style.cursor = CURSOR[S.ferr] ?? 'crosshair'; const p = ptr(e); const w = paraMundo(p[0], p[1]);
+    if (e.pointerType === 'touch' && S.ferr === 'select' && toqueIni && Date.now() - toqueIni.t < 350 && Math.hypot(p[0] - toqueIni.x, p[1] - toqueIni.y) < 10) { // dois toques rápidos no mesmo lugar
+      if (ultimoToque && Date.now() - ultimoToque.t < 450 && Math.hypot(p[0] - ultimoToque.x, p[1] - ultimoToque.y) < 30) { ultimoToque = null; duploToque(p); return; }
+      ultimoToque = { x: p[0], y: p[1], t: Date.now() };
+    }
     if (a.tipo === 'pan') { salvarSoon(); return; }
     if (a.tipo === 'desenhar') {
       const st = vivo; vivo = null; if (st.p.length < 2) st.p.push([st.p[0][0] + 0.01, st.p[0][1]]); st.p = G.densificar(st.p, 3);
@@ -551,10 +561,12 @@ function montar(corpo) {
   }
   tela.addEventListener('pointerup', soltar);
   tela.addEventListener('pointercancel', (e) => { pontos.delete(e.pointerId); if (arrasto?.tipo === 'pinca') arrasto = null; else if (arrasto?.tipo === 'desenhar') { vivo = null; arrasto = null; redesenhar(); } });
-  tela.addEventListener('dblclick', (e) => {
-    if (!cur || S.ferr !== 'select') return; const p = ptr(e); const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
+  function duploToque(p) {
+    if (!cur || S.ferr !== 'select') return; const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
     if (o && G.ehCaixa(o)) iniciarEdicao(o); else if (!o) { const t = novoTexto(w[0], w[1]); objs.push(t); S.sel = [t.id]; iniciarEdicao(t); }
-  });
+  }
+  tela.addEventListener('dblclick', (e) => duploToque(ptr(e)));
+  let toqueIni = null; let ultimoToque = null;
   tela.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ---------- barra contextual ----------
@@ -590,7 +602,7 @@ function montar(corpo) {
   function posCtx() {
     if (ctx.hidden) return; const b = selCaixa(); if (!b) { ctx.hidden = true; return; }
     const a = paraTela(b.x, b.y); const bw = b.w * cam.z; const bh = b.h * cam.z; const cw = ctx.offsetWidth; const ch = ctx.offsetHeight;
-    const x = Math.max(70, Math.min(a[0] + bw / 2 - cw / 2, W - cw - 6)); let y = a[1] - ch - 40; if (y < 56) y = Math.min(a[1] + bh + 14, H - ch - 60);
+    const x = Math.max(estreita() ? 8 : 70, Math.min(a[0] + bw / 2 - cw / 2, W - cw - 8)); let y = a[1] - ch - 40; if (y < 56) y = Math.min(a[1] + bh + 14, H - ch - 60);
     ctx.style.left = `${x}px`; ctx.style.top = `${Math.max(56, y)}px`;
   }
 
@@ -701,7 +713,7 @@ function montar(corpo) {
   (async () => {
     await carregarLista();
     const ultima = ler('lousaAtiva', null); const alvo = lista.find((l) => l.id === ultima) ?? lista[0];
-    if (alvo) await abrir(alvo.id); else { status('ok', 'Crie seu primeiro quadro'); vazio.hidden = false; }
+    if (alvo) await abrir(alvo.id); else { status('ok', 'Crie seu primeiro quadro'); vazio.hidden = false; if (estreita()) corpo.classList.remove('sem-coluna'); }
   })();
 
   return {
