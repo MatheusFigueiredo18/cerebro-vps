@@ -759,3 +759,17 @@ body:is([data-guia="pagina"], [data-guia="banco"], [data-guia="arquivo"]) .area 
 
 /* com a lateral fechada, a pílula das Funções flutua sobre a esquerda: as ferramentas se afastam dela */
 body.sem-lateral :is(.lousa-ferramentas, .lousa-desfazer, .video-ferramentas) { left: calc(var(--rail) + 4px); }
+
+/* Conteúdos: lixeira sempre visível no canto do cartão e confirmação em cima dele */
+.cartao-arrastavel { position: relative; }
+.cartao-lixo { position: absolute; top: 6px; right: 6px; z-index: 2; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: rgb(0 0 0 / .5); border: 1px solid rgb(255 255 255 / .18); }
+.cartao-lixo svg.i { width: 15px; height: 15px; }
+.cartao-lixo:hover, .cartao-lixo:focus-visible { background: var(--vermelho); }
+.confirma-apagar { position: absolute; left: 6px; right: 6px; top: 6px; z-index: 5; display: grid; gap: 6px; padding: 10px; border-radius: 10px; background: var(--card); border: 1px solid var(--vermelho); box-shadow: var(--sombra); font-size: 12.5px; }
+.confirma-apagar p { margin: 0; font-weight: 600; }
+.confirma-apagar small { color: var(--texto-2); }
+.confirma-botoes { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (hover: none) { .cartao-lixo { width: 36px; height: 36px; } }
+.conteudos-janela .confirma-apagar { padding: 8px; gap: 5px; }
+.conteudos-janela .confirma-apagar small { display: none; }
+.conteudos-janela .confirma-botoes .bt { padding: 0 8px; }

@@ -1,5 +1,5 @@
 // Função Conteúdos: explorador da pasta conteudo/ (pastas dentro de pastas), com capas, envio, nova pasta e mover por arrasto.
-import { $, el, api, icone, emitir, ouvir } from './comum.js';
+import { $, el, api, icone, emitir, ouvir, avisar } from './comum.js';
 import { dataCurta, tamanhoLegivel, nomeBase } from './formatos.js';
 import { urlArquivo } from './markdown.js';
 import { TIPO_ARRASTO } from './anexos.js';
@@ -96,7 +96,7 @@ function montar(corpo) {
   }
 
   async function acao(rota, corpo) {
-    try { await api(rota, { metodo: 'POST', corpo }); } catch (erro) { sub.textContent = erro.message; return false; }
+    try { await api(rota, { metodo: 'POST', corpo }); } catch (erro) { sub.textContent = erro.message; avisar(erro.message, 'erro'); return false; }
     emitir('arvore-mudou');
     carregar();
     return true;
@@ -120,14 +120,22 @@ function montar(corpo) {
     campo.select();
   }
 
-  // Apagar pede um segundo clique; o item vai para a lixeira do cérebro (.trash), não some de vez.
-  function apagarBt(item) {
-    let espera = null;
-    const bt = el('button', { type: 'button', class: 'link perigo', title: 'Vai para a lixeira do cérebro (.trash)' }, 'Apagar');
-    bt.addEventListener('click', () => {
-      if (espera) { clearTimeout(espera); acao('/api/conteudos/apagar', { de: item.caminho }); return; }
-      bt.textContent = item.pasta ? `Apagar pasta e ${item.arquivos} arquivo${item.arquivos === 1 ? '' : 's'}?` : 'Confirmar apagar?';
-      espera = setTimeout(() => { espera = null; bt.textContent = 'Apagar'; }, 4000);
+  // Lixeira sempre visível no canto do cartão; abre uma confirmação em cima do próprio cartão.
+  // O item vai para a lixeira do cérebro (.trash), não some de vez.
+  function lixeiraBt(item, envoltorio) {
+    const fechar = () => envoltorio.querySelector('.confirma-apagar')?.remove();
+    const bt = el('button', { type: 'button', class: 'cartao-lixo', title: 'Apagar (vai para a lixeira do cérebro)', 'aria-label': `Apagar ${item.nome}` }, icone('lixeira'));
+    bt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (envoltorio.querySelector('.confirma-apagar')) { fechar(); return; }
+      const o = item.pasta ? `a pasta e ${item.arquivos} arquivo${item.arquivos === 1 ? '' : 's'} dentro` : 'o arquivo';
+      const sim = el('button', { type: 'button', class: 'bt perigo pequeno', onclick: async () => { sim.disabled = true; if (!await acao('/api/conteudos/apagar', { de: item.caminho })) { sim.disabled = false; fechar(); } } }, 'Apagar');
+      const caixa = el('div', { class: 'confirma-apagar', role: 'alertdialog', 'aria-label': `Confirmar apagar ${item.nome}` },
+        el('p', {}, `Apagar ${o}?`), el('small', {}, 'Vai para a lixeira do cérebro (.trash).'),
+        el('div', { class: 'confirma-botoes' }, sim, el('button', { type: 'button', class: 'bt pequeno', onclick: fechar }, 'Cancelar')));
+      caixa.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); fechar(); bt.focus(); } });
+      envoltorio.append(caixa);
+      sim.focus();
     });
     return bt;
   }
@@ -166,10 +174,10 @@ function montar(corpo) {
       }, el('span', { class: 'cartao-capa' }, capa(i)), el('b', {}, i.nome),
       el('small', {}, [i.pasta ? `${i.arquivos} arquivo${i.arquivos === 1 ? '' : 's'}` : tamanhoLegivel(i.tamanho ?? 0), dataCurta(i.nome, i.mtime)].filter(Boolean).join(' · ')));
       const acoes = el('div', { class: 'cartao-acoes' },
-        el('button', { type: 'button', class: 'link', onclick: () => renomear(i, botao.querySelector('b')) }, 'Renomear'),
-        apagarBt(i));
+        el('button', { type: 'button', class: 'link', onclick: () => renomear(i, botao.querySelector('b')) }, 'Renomear'));
       // o botão não é arrastável no Firefox: o arrasto fica num envoltório
       const envoltorio = arrastavel(el('div', { class: 'cartao-arrastavel' }, botao, acoes), i.caminho, i.pasta ? 'arraste para outra pasta' : 'arraste para uma pasta ou para a área de trabalho');
+      envoltorio.append(lixeiraBt(i, envoltorio));
       return i.pasta ? alvoDeSoltar(envoltorio, i.caminho) : envoltorio;
     };
     lista.replaceChildren(el('div', { class: 'cartoes' }, itens.map(cartao)));
