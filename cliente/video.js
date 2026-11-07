@@ -1,8 +1,8 @@
 // Função Criação de vídeo: espaço novo, ao lado dos outros.
 // Barra da direita = sessões (cada vídeo é uma sessão com o próprio canvas). No canvas: mover, zoom, nós que se criam ao clicar,
 // arquivos de Conteúdos (vídeo ou imagem) que viram Referência ao soltar, e ligações por tipo entre os nós.
-// Ainda não gera nada: o gerador (Remotion) entra na fase 3 (docs/AREA-VIDEO.md). Sessões e grafos ficam no navegador por enquanto.
-import { el, icone, botaoIcone, botaoConfirmar, ler, guardar, avisar } from './comum.js';
+// Ainda não gera nada: o gerador (Remotion) entra na fase 3 (docs/AREA-VIDEO.md). Cada sessão fica no servidor (/api/video, um JSON por sessão); o navegador só lembra qual estava aberta.
+import { el, icone, botaoIcone, botaoConfirmar, ler, guardar, avisar, api } from './comum.js';
 import { abrirJanela } from './conteudos.js';
 import { nomeBase, tipoArquivo } from './formatos.js';
 import { urlArquivo } from './markdown.js';
@@ -34,18 +34,42 @@ const quando = (ms) => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', mo
 const SVG = 'http://www.w3.org/2000/svg';
 
 function montar(corpo) {
-  let sessoes = ler('videoSessoes', []);
+  let sessoes = []; // vêm do servidor (iniciar)
   let ativa = ler('videoAtiva', null);
-  if (ativa && !sessoes.some((s) => s.id === ativa)) ativa = null;
   let grafo = { cam: null, nos: [], links: [] };
+  const versoes = new Map(); // id da sessão -> versão no servidor
+  const criadas = new Map(); // id da sessão -> promessa da criação no servidor
+  let carregando = false; let sujo = false; let enviando = false; let falhou = false; let timerEnvio = 0;
   let cards = new Map(); // id do nó -> { el, no }
   let topoZ = 1;
 
   corpo.classList.add('video-espaco');
   corpo.classList.toggle('sem-coluna', ler('videoColunaRecolhida', false) === true);
 
-  const salvarSessoes = () => { guardar('videoSessoes', sessoes); guardar('videoAtiva', ativa); };
-  const salvarGrafo = () => { if (ativa) guardar(`videoGrafo:${ativa}`, grafo); };
+  const salvarSessoes = () => { guardar('videoAtiva', ativa); };
+  // salva a sessão aberta no servidor, sem pressa (700 ms depois da última mudança); tenta de novo se a conexão cair
+  function salvarGrafo() {
+    if (!ativa || carregando) return;
+    sujo = true;
+    clearTimeout(timerEnvio);
+    timerEnvio = setTimeout(enviarGrafo, 700);
+  }
+  async function enviarGrafo() {
+    clearTimeout(timerEnvio);
+    if (!ativa || !sujo || carregando) return;
+    if (enviando) { timerEnvio = setTimeout(enviarGrafo, 300); return; }
+    const id = ativa; const g = grafo; enviando = true; sujo = false; // g: o canvas desta sessão, mesmo que a tela já troque de sessão
+    try {
+      await criadas.get(id);
+      const r = await api(`/api/video/${id}`, { metodo: 'PUT', corpo: { versao: versoes.get(id), titulo: sessoes.find((x) => x.id === id)?.titulo, grafo: g } });
+      versoes.set(id, r.versao); falhou = false;
+    } catch (e) {
+      sujo = true; falhou = true;
+      if (e.status === 409) avisar('Esta sessão foi alterada em outro lugar. Recarregue a página para ver a versão salva.', 'erro');
+      else timerEnvio = setTimeout(enviarGrafo, 4000);
+    } finally { enviando = false; }
+    if (sujo && !falhou) timerEnvio = setTimeout(enviarGrafo, 200);
+  }
 
   // ---------- estrutura da tela ----------
   const mundo = el('div', { class: 'mundo' });
@@ -129,22 +153,58 @@ function montar(corpo) {
     const numero = sessoes.reduce((m, s) => Math.max(m, s.numero), 0) + 1;
     const s = { id: crypto.randomUUID(), numero, titulo: `Vídeo ${numero}`, criada: Date.now() };
     sessoes = [s, ...sessoes];
-    abrir(s.id);
+    versoes.set(s.id, 1);
+    criadas.set(s.id, api('/api/video', { metodo: 'POST', corpo: { id: s.id, numero, titulo: s.titulo, criada: s.criada } }).then((r) => { versoes.set(s.id, r.versao); }).catch(() => avisar('Não consegui criar a sessão no servidor.', 'erro')));
+    abrir(s.id, true); // sessão nova: o canvas já abre vazio, sem esperar o servidor
     return s;
   }
-  function abrir(id) {
+  async function abrir(id, nova = false) {
+    if (nova) { // sessão nova: troca na hora (quem chamou já usa o canvas), e o que estava aberto segue sendo salvo
+      if (ativa && sujo) enviarGrafo();
+      ativa = id; carregando = false; sujo = false;
+      salvarSessoes(); pintarLista(); carregarGrafo(null);
+      return;
+    }
+    if (ativa && ativa !== id && sujo) await enviarGrafo();
     ativa = id;
     salvarSessoes();
-    carregarGrafo();
+    pintarLista();
+    carregando = true;
+    carregarGrafo(null);
+    try {
+      const r = await api(`/api/video/${id}`);
+      if (ativa !== id) return;
+      versoes.set(id, r.versao);
+      carregando = false;
+      carregarGrafo(r.grafo);
+    } catch (e) { avisar(e.message, 'erro'); } finally { if (ativa === id) carregando = false; }
+  }
+  // "Remover" arquiva no servidor (o arquivo fica guardado): some da lista, sem apagar nada
+  function remover(id) {
+    api(`/api/video/${id}/arquivar`, { metodo: 'POST' }).catch(() => avisar('Não consegui arquivar no servidor.', 'erro'));
+    sessoes = sessoes.filter((s) => s.id !== id);
+    if (ativa === id) { ativa = null; sujo = false; }
+    if (!ativa && sessoes[0]) abrir(sessoes[0].id);
+    else if (!ativa) { salvarSessoes(); carregarGrafo(null); }
+    salvarSessoes();
     pintarLista();
   }
-  function remover(id) {
-    sessoes = sessoes.filter((s) => s.id !== id);
-    try { localStorage.removeItem(`videoGrafo:${id}`); } catch { /* sem armazenamento */ }
-    if (ativa === id) ativa = sessoes[0]?.id ?? null;
-    salvarSessoes();
-    carregarGrafo();
+  async function iniciar() {
+    try {
+      let lst = await api('/api/video');
+      const locais = ler('videoSessoes', []);
+      if (!lst.length && locais.length) { // uma vez só: o que estava só neste navegador sobe para o servidor
+        for (const s of [...locais].reverse()) {
+          try { await api('/api/video', { metodo: 'POST', corpo: { id: s.id, numero: s.numero, titulo: s.titulo, criada: s.criada, grafo: ler(`videoGrafo:${s.id}`, null) ?? undefined } }); } catch { /* segue com as outras */ }
+        }
+        lst = await api('/api/video');
+        if (lst.length) avisar('Suas sessões de vídeo agora ficam guardadas no servidor.');
+      }
+      sessoes = lst;
+    } catch (e) { avisar(e.message, 'erro'); }
+    if (ativa && !sessoes.some((s) => s.id === ativa)) ativa = null;
     pintarLista();
+    if (ativa) await abrir(ativa); else pintarVazio();
   }
   function pintarLista() {
     lista.replaceChildren(...(sessoes.length
@@ -156,13 +216,13 @@ function montar(corpo) {
   }
 
   // ---------- nós ----------
-  function carregarGrafo() {
+  function carregarGrafo(g) {
     for (const c of cards.values()) c.el.remove();
     for (const n of notas.values()) n.remove();
     cards = new Map();
     notas.clear();
     ligacoes.replaceChildren();
-    grafo = ativa ? ler(`videoGrafo:${ativa}`, null) ?? { cam: null, nos: [], links: [] } : { cam: null, nos: [], links: [] };
+    grafo = g ?? { cam: null, nos: [], links: [] };
     if (!grafo.cam) grafo.cam = { x: 40, y: 80, z: 1 };
     if (!Array.isArray(grafo.nos)) grafo.nos = [];
     if (!Array.isArray(grafo.links)) grafo.links = [];
@@ -537,9 +597,12 @@ function montar(corpo) {
   });
 
   pintarLista();
-  carregarGrafo();
+  carregarGrafo(null);
+  iniciar();
   return {
     mostrar: () => { if (ativa) aplicarCam(); },
+    esconder: () => { enviarGrafo(); },
+    limpar: () => { enviarGrafo(); clearTimeout(timerEnvio); },
   };
 }
 

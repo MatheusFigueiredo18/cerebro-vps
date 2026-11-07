@@ -18,6 +18,7 @@ import { criarCapas } from './capas.js';
 import { criarPagina, criarPasta, lerPagina, salvarPagina, buscar } from './paginas.js';
 import { criarBanco, lerBanco, criarLinha, salvarProp, salvarEsquema } from './bancos.js';
 import { criarLousas } from './lousas.js';
+import { criarVideos } from './videos.js';
 
 const CLIENTE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'cliente');
 const MODULOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'node_modules');
@@ -59,8 +60,8 @@ export function criarServidor(cfg, deps = {}) {
   });
 
   const json1mb = express.json({ limit: '1mb' });
-  // PUT /api/pagina (3 MB) e PUT /api/lousas/:id (10 MB) têm parser próprio depois do login; o envio de arquivo lê o corpo cru
-  const corpoProprio = (req) => (req.method === 'PUT' && (req.path === '/pagina' || /^\/lousas\/[^/]+$/.test(req.path))) || req.path === '/enviar';
+  // PUT /api/pagina (3 MB) e PUT /api/lousas/:id e /api/video/:id (10 MB) têm parser próprio depois do login; o envio de arquivo lê o corpo cru
+  const corpoProprio = (req) => (req.method === 'PUT' && (req.path === '/pagina' || /^\/(lousas|video)\/[^/]+$/.test(req.path))) || req.path === '/enviar';
   app.use('/api', (req, res, next) => (corpoProprio(req) ? next() : json1mb(req, res, next)));
 
   app.post('/api/login', (req, res) => {
@@ -172,6 +173,14 @@ export function criarServidor(cfg, deps = {}) {
   app.get('/api/lousas/:id', (req, res) => rotaVault(() => lousas.ler(req.params.id))(req, res));
   app.put('/api/lousas/:id', express.json({ limit: '10mb' }), (req, res) => rotaVault((b) => lousas.salvar(req.params.id, b))(req, res));
   app.post('/api/lousas/:id/duplicar', (req, res) => rotaVault(() => lousas.duplicar(req.params.id))(req, res));
+
+  // ---------- criação de vídeo (sessões) ----------
+  const videos = criarVideos(cfg.dados, agora);
+  app.get('/api/video', rotaVault(() => videos.listar()));
+  app.post('/api/video', rotaVault((b) => videos.criar(b)));
+  app.get('/api/video/:id', (req, res) => rotaVault(() => videos.ler(req.params.id))(req, res));
+  app.put('/api/video/:id', express.json({ limit: '10mb' }), (req, res) => rotaVault((b) => videos.salvar(req.params.id, b))(req, res));
+  app.post('/api/video/:id/arquivar', (req, res) => rotaVault(() => videos.arquivar(req.params.id))(req, res));
 
   // ---------- conversas ----------
   app.post('/api/conversas', (req, res) => {
