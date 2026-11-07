@@ -58,6 +58,7 @@
 | 45 | Lousas: versão otimista (`versao` no arquivo; o PUT com versão velha dá 409) em vez de último a gravar vence | Duas abas ou aparelhos não se sobrescrevem em silêncio | O segundo precisa tocar em "Recarregar" e perde o que ainda não tinha salvo |
 | 46 | Lousas: servidor valida só o formato (tipos, números finitos, tamanhos; 20 mil objetos, 50 mil pontos por traço, 8 MB) e nunca desenha; o texto vai ao canvas por `fillText`, nunca como HTML | Um JSON malicioso não vira script nem enche o disco | Objetos com campos extras passam como vieram |
 | 47 | Lousas: a geometria (formas, seleção, borrachas, transformações) fica em `cliente/lousa-geo.js`, pura e testada; a tela em `cliente/lousa.js` | Mesmo padrão de `camera.js` e `grafo-fisica.js` | Nenhum |
+| 47a | Criação de vídeo ganha só 3 ferramentas (pedido do Matheus, 2026-11-07): desenho livre, nota adesiva e borracha. Traços e notas ficam no mesmo `videoGrafo:<sessão>` do navegador (`tracos` e `notas`); a borracha apaga o traço inteiro e nunca toca nós nem notas; a nota se exclui pelo X no canto de cima, à direita (o mesmo X vale para as notas do Quadro) | Reaproveita `lousa-geo.js` (densificar e apagar), sem novo código de geometria | Como o resto da Criação de vídeo, fica no navegador por enquanto; sem desfazer nessas 3 ferramentas |
 
 ## Instalação (fase 3)
 

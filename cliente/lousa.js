@@ -223,7 +223,19 @@ function montar(corpo) {
     const a = paraTela(b.x, b.y); const z = paraTela(b.x + b.w, b.y + b.h);
     return { pts: [[a[0], a[1]], [z[0], a[1]], [z[0], z[1]], [a[0], z[1]]], rot: [(a[0] + z[0]) / 2, a[1] - 28], x0: a[0], y0: a[1], x1: z[0] };
   }
+  // o X de excluir fica no canto de cima, à direita, de cada nota adesiva
+  const xDaNota = (o) => { const c = G.cantos(o)[1]; return paraTela(c[0], c[1]); };
+  function desenharXNotas() {
+    g.save(); g.setTransform(DPR, 0, 0, DPR, 0, 0); g.lineWidth = 1.6; g.lineCap = 'round';
+    for (const o of objs) {
+      if (o.t !== 'sticky' || o.lock) continue;
+      const [x, y] = xDaNota(o); g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fillStyle = TH.quadro; g.fill(); g.strokeStyle = TH.mudo; g.stroke();
+      g.beginPath(); g.moveTo(x - 3.5, y - 3.5); g.lineTo(x + 3.5, y + 3.5); g.moveTo(x + 3.5, y - 3.5); g.lineTo(x - 3.5, y + 3.5); g.stroke();
+    }
+    g.restore();
+  }
   function sobreposicao(pid) {
+    desenharXNotas();
     g.save(); g.setTransform(DPR, 0, 0, DPR, 0, 0); g.lineWidth = 1.5; g.strokeStyle = TH.acento; g.fillStyle = TH.acento;
     if (hover) { const o = porIdFn(hover); if (o) { const b = G.limites(o, pid); const a = paraTela(b.x, b.y); g.setLineDash([5, 4]); g.strokeRect(a[0] - 3, a[1] - 3, b.w * cam.z + 6, b.h * cam.z + 6); g.setLineDash([]); } }
     if (!editando) {
@@ -456,6 +468,10 @@ function montar(corpo) {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const pid = porId();
     if (t === 'select') {
+      for (let i = objs.length - 1; i >= 0; i--) { // X da nota adesiva: exclui na hora (Ctrl+Z volta)
+        const o = objs[i]; if (o.t !== 'sticky' || o.lock) continue;
+        const [x, y] = xDaNota(o); if (Math.hypot(p[0] - x, p[1] - y) < 11) { S.sel = [o.id]; excluirSel(); return; }
+      }
       const al = alcaEm(p);
       if (al !== null) { const l = selObjs().filter((o) => !o.lock); const b = G.uniao(l, pid); arrasto = { tipo: al === 'rot' ? 'girar' : 'redim', al, caixa: b, snap: l.map((o) => [o, structuredClone(o)]), a0: Math.atan2(w[1] - (b.y + b.h / 2), w[0] - (b.x + b.w / 2)) }; return; }
       const o = G.escolher(objs, w[0], w[1], tol());
