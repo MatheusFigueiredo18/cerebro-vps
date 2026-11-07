@@ -11,7 +11,7 @@ import { cfgTeste, subir, entrar, json, escrever, ate, esperar } from './ajuda.j
 const FALSO = path.join(path.dirname(fileURLToPath(import.meta.url)), 'motor-falso.mjs');
 
 async function preparar(t, extra = {}, deps = {}) {
-  const cfg = cfgTeste({ bins: { claude: FALSO, codex: FALSO, antigravity: FALSO }, ...extra });
+  const cfg = cfgTeste({ bins: { claude: FALSO, codex: FALSO, antigravity: FALSO, grok: FALSO }, ...extra });
   const s = await subir(cfg, { spawnTerminal: spawnPorPipes, ...deps });
   t.after(() => s.fechar());
   const cookie = await entrar(s.base);
@@ -122,7 +122,7 @@ test('processo que sai avisa os clientes e a próxima conexão retoma com --resu
 });
 
 test('motor não instalado mostra o aviso no terminal', async (t) => {
-  const { s, cookie, api } = await preparar(t, { bins: { claude: 'claude-inexistente-xyz', codex: 'x', antigravity: 'y' } });
+  const { s, cookie, api } = await preparar(t, { bins: { claude: 'claude-inexistente-xyz', codex: 'x', antigravity: 'y', grok: 'z' } });
   const { corpo: c } = await api('POST', '/api/conversas', {});
   const ws = abrirWs(s, cookie, c.id);
   await abriu(ws);

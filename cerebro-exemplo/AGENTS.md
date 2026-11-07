@@ -1,6 +1,6 @@
 # Cérebro de {{NOME}}: regras para outros motores
 
-> Para Codex, Antigravity e qualquer motor que não lê `CLAUDE.md` nem roda hooks.
+> Para Codex, Antigravity, Grok e qualquer motor que não lê `CLAUDE.md` nem roda hooks.
 
 1. **A constituição vale para você.** Leia `CLAUDE.md` antes de agir. Onde ele diz "Claude", entenda "você".
 2. **Faça à mão o que os hooks fariam.** Ao começar, leia as primeiras pendências abertas de `tasks/todo.md`. A cada mensagem, aplique a captura contínua: fato novo vai para o destino certo na hora, com aviso de uma linha; pendência vira item do todo; correção vira lição.

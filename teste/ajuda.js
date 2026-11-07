@@ -24,7 +24,7 @@ export function cfgTeste(extra = {}) {
     senha: 'segredo',
     tokenPonte: 'tok',
     codexHome: path.join(casa, '.codex'),
-    bins: { claude: 'claude-inexistente', codex: 'codex-inexistente', antigravity: 'agy-inexistente' },
+    bins: { claude: 'claude-inexistente', codex: 'codex-inexistente', antigravity: 'agy-inexistente', grok: 'grok-inexistente' },
     evo: { url: '', key: '', instancia: 'cerebro' },
     whatsWebhook: 'http://n8n:5678/webhook/core-os-whatsapp',
     whatsDono: '',

@@ -15,6 +15,7 @@ test('chaveDoMotor reconhece o motor pelo nome mostrado ou pelo id', () => {
   assert.equal(chaveDoMotor('claude'), 'claude');
   assert.equal(chaveDoMotor('Codex (OpenAI)'), 'codex');
   assert.equal(chaveDoMotor('Antigravity'), 'antigravity');
+  assert.equal(chaveDoMotor('Grok'), 'grok');
   assert.equal(chaveDoMotor('Outro motor'), '');
   assert.equal(chaveDoMotor(undefined), '');
 });

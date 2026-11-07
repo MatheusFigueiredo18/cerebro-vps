@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { lerJson, gravarJson } from './dados.js';
 import { tipoMidia, relDe } from './arquivos.js';
-import { MOTORES, motorDe, localizar, comandoDe, argsTerminal, ambienteAgente, promptPainel, lerPreferencias } from './motores.js';
+import { MOTORES, motorDe, guardaHistorico, localizar, comandoDe, argsTerminal, ambienteAgente, promptPainel, lerPreferencias } from './motores.js';
 import {
   pastaProjetoClaude, statusClaude, historicoClaude, subagentes, pastaSessoesCodex, lerCodex, acharArquivoCodex,
   registrosCodexRecentes, vincularCodex,
@@ -83,7 +83,7 @@ export function criarConversas({ cfg, spawnTerminal, agora = Date.now, log = () 
     const c = porId(id);
     const motor = motorDe(c?.motor);
     if (motor === 'codex') { const a = c && arquivoCodex(c); return a ? lerCodex(a).itens : []; }
-    if (motor === 'antigravity') return c.historico ?? [];
+    if (guardaHistorico(motor)) return c?.historico ?? [];
     return historicoClaude(registroClaude(id));
   }
 

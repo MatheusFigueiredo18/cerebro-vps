@@ -82,7 +82,7 @@ Repetiu o mesmo procedimento pela terceira vez? Sugira a {{NOME}} transformá-lo
 
 ## 6. Motores
 
-Claude Code, Codex e Antigravity podem atender. No painel, {{NOME}} define um motor para as conversas do navegador e outro, independente, para o WhatsApp. Seja qual for, estas regras e as mesmas habilidades valem.
+Claude Code, Codex, Antigravity e Grok podem atender. No painel, {{NOME}} define um motor para as conversas do navegador e outro, independente, para o WhatsApp. Seja qual for, estas regras e as mesmas habilidades valem.
 
 ## 7. O que nunca fazer
 

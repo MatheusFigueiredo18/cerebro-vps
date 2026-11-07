@@ -15,6 +15,7 @@ export const MARCAS = {
 
 export const SEMANTICOS = {
   "codex": "robo",
+  "grok": "brilho",
   "yt-dlp": "baixar",
   "whisper": "ondas",
   "remotion": "filme",

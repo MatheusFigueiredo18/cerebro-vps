@@ -15,7 +15,7 @@ const MARCAS = {
 };
 // chave sem marca no pacote -> nome do ícone em cliente/icones.js
 const SEMANTICOS = {
-  codex: 'robo', 'yt-dlp': 'baixar', whisper: 'ondas', remotion: 'filme', playwright: 'globo', fal: 'brilho', context7: 'livro',
+  codex: 'robo', grok: 'brilho', 'yt-dlp': 'baixar', whisper: 'ondas', remotion: 'filme', playwright: 'globo', fal: 'brilho', context7: 'livro',
 };
 
 const dados = JSON.parse(fs.readFileSync(path.join(pacote, 'data', 'simple-icons.json'), 'utf8'));

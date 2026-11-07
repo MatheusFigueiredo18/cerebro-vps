@@ -80,7 +80,7 @@ async function evolutionFalsa() {
 
 async function preparar(t, extra = {}, deps = {}) {
   const ev = await evolutionFalsa();
-  const cfg = cfgTeste({ evo: { url: ev.url, key: 'chave', instancia: 'cerebro' }, bins: { claude: FALSO, codex: FALSO, antigravity: FALSO }, ...extra });
+  const cfg = cfgTeste({ evo: { url: ev.url, key: 'chave', instancia: 'cerebro' }, bins: { claude: FALSO, codex: FALSO, antigravity: FALSO, grok: FALSO }, ...extra });
   const s = await subir(cfg, { spawnTerminal: spawnPorPipes, ...deps });
   t.after(async () => { await s.fechar(); await ev.fechar(); });
   const cookie = await entrar(s.base);
@@ -160,7 +160,7 @@ test('motores: leitura, gravação e ids desconhecidos ignorados', async (t) => 
   const g = (await api('GET', '/api/config/motores')).corpo;
   assert.equal(g.padrao, 'claude');
   assert.equal(g.whatsapp, 'claude');
-  assert.deepEqual(Object.keys(g.motores), ['claude', 'codex', 'antigravity']);
+  assert.deepEqual(Object.keys(g.motores), ['claude', 'codex', 'antigravity', 'grok']);
   assert.equal(g.motores.claude.instalado, true);
   assert.equal(g.motores.claude.nome, 'Claude Code');
   assert.ok(g.motores.codex.login);

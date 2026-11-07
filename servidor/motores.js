@@ -18,9 +18,15 @@ export const MOTORES = {
     nome: 'Antigravity',
     login: 'Abra o link com código que aparece no terminal ou coloque a chave de API no .env do servidor.',
   },
+  grok: {
+    nome: 'Grok',
+    login: 'Instale o Grok Build no servidor (precisa de plano SuperGrok), rode grok no terminal do servidor e entre pelo link, ou coloque XAI_API_KEY no .env do servidor.',
+  },
 };
 
 export const motorDe = (id) => (Object.hasOwn(MOTORES, id ?? '') ? id : 'claude');
+// Motores sem registro de conversa legível em disco: o painel guarda o histórico (WhatsApp) em vez de lê-lo do motor.
+export const guardaHistorico = (motor) => motor === 'antigravity' || motor === 'grok';
 
 const FERRAMENTAS_WHATS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Skill', 'Task', 'WebFetch', 'WebSearch'];
 export const LIMITE_SEM_TELA_MS = 20 * 60_000;
@@ -76,6 +82,10 @@ export function argsTerminal(conversa, prompt, registroExiste) {
     if (conversa.sessaoMotor) return ['--conversation', conversa.sessaoMotor];
     return conversa.iniciouTerminal ? ['--continue'] : [];
   }
+  if (motor === 'grok') {
+    if (conversa.sessaoMotor) return ['--resume', conversa.sessaoMotor];
+    return conversa.iniciouTerminal ? ['--continue'] : [];
+  }
   return [registroExiste ? '--resume' : '--session-id', conversa.id, '--append-system-prompt', prompt];
 }
 
@@ -90,6 +100,11 @@ export function argsSemTela(conversa, texto, prompt, registroExiste, arquivoSaid
     const pedido = conversa.sessaoMotor ? texto : `[${prompt}]\n\n${texto}`;
     const args = ['-p', pedido, '--output-format', 'json', '--dangerously-skip-permissions', '--print-timeout', '20m'];
     return conversa.sessaoMotor ? [...args, '--conversation', conversa.sessaoMotor] : args;
+  }
+  if (motor === 'grok') {
+    // a sessão é nomeada com o id da conversa (-s cria na primeira vez e retoma depois); saída em texto puro, o padrão da CLI
+    const pedido = conversa.sessaoMotor ? texto : `[${prompt}]\n\n${texto}`;
+    return ['-p', pedido, '-s', conversa.id, '--always-approve'];
   }
   return ['-p', texto, registroExiste ? '--resume' : '--session-id', conversa.id, '--append-system-prompt', prompt,
     '--output-format', 'text', '--permission-mode', 'acceptEdits', '--allowedTools', ...FERRAMENTAS_WHATS];
@@ -153,6 +168,9 @@ export function rodarSemTela({ motor, bin, conversa, texto, prompt, vault, env, 
         const resposta = j ? String(j.response ?? j.result ?? j.text ?? '').trim() : saida.trim();
         const sessao = j ? (j.conversation_id ?? j.conversationId ?? j.session_id ?? j.sessionId ?? null) : null;
         ok({ resposta, sessao, arquivoSaida });
+      } else if (motor === 'grok') {
+        // só a saída padrão é a resposta; o que vai para o erro (avisos, login pedido) só aparece se não houve resposta
+        ok({ resposta: saida.trim() || erro.trim().split('\n').slice(-5).join('\n'), sessao: conversa.id, arquivoSaida });
       } else ok({ resposta: `${saida}${erro}`.trim(), sessao: conversa.id, arquivoSaida });
     });
   });

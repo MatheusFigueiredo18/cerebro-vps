@@ -21,7 +21,7 @@ test('configuracao: padrões, cérebro resolvido e pasta de dados criada', () =>
   assert.equal(c.host, '127.0.0.1');
   assert.equal(c.vault, fs.realpathSync(vault));
   assert.ok(fs.statSync(dados).isDirectory());
-  assert.deepEqual(c.bins, { claude: 'claude', codex: 'codex', antigravity: 'agy' });
+  assert.deepEqual(c.bins, { claude: 'claude', codex: 'codex', antigravity: 'agy', grok: 'grok' });
   assert.equal(c.evo.instancia, 'cerebro');
   assert.match(c.whatsWebhook, /\/webhook\/core-os-whatsapp$/);
   assert.throws(() => configuracao({ CORE_OS_VAULT: path.join(vault, 'nao-existe'), CORE_OS_DATA: dados }), /cérebro/);

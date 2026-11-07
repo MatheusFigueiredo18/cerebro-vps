@@ -638,7 +638,7 @@ async function abrirSeletor() {
       try { await api('/api/config/motores', { metodo: 'POST', corpo: { padrao: id } }); } catch { /* segue com o motor pedido */ }
       novaConversa({ motor: id });
     },
-  }, logo(id, x.nome, 'motor grande'), el('span', {}, el('b', {}, x.nome), el('small', {}, { claude: 'Anthropic', codex: 'OpenAI', antigravity: 'Google' }[id] ?? '')),
+  }, logo(id, x.nome, 'motor grande'), el('span', {}, el('b', {}, x.nome), el('small', {}, { claude: 'Anthropic', codex: 'OpenAI', antigravity: 'Google', grok: 'xAI' }[id] ?? '')),
   el('span', { class: `selo ${x.instalado ? (id === m.padrao ? 'pronto' : '') : 'pausado'}` }, x.instalado ? (id === m.padrao ? 'último usado' : 'pronto') : 'instalar')));
   caixa.lastChild.replaceWith(el('div', { class: 'motor-opcoes' }, opcoes));
   caixa.querySelector('.motor-opcao')?.focus();

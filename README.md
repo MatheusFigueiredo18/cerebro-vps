@@ -38,7 +38,7 @@ O terminal das conversas usa `node-pty` (instalado como opcional). Sem ele, o pa
 npm test
 ```
 
-Cobrem servidor, páginas, bancos, conversão de Markdown em blocos e a lógica da interface. A parte visual foi conferida à mão num navegador, com um motor de IA e uma Evolution API falsos. Nada foi testado ainda com Claude Code, Codex, Evolution ou n8n reais, nem em Linux.
+Cobrem servidor, páginas, bancos, conversão de Markdown em blocos e a lógica da interface. A parte visual foi conferida à mão num navegador, com um motor de IA e uma Evolution API falsos. Nada foi testado ainda com Claude Code, Codex, Antigravity, Grok, Evolution ou n8n reais, nem em Linux.
 
 ## Instalar numa VPS com um prompt
 

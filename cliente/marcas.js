@@ -9,6 +9,7 @@ export function chaveDoMotor(texto) {
   if (t.includes('claude')) return 'claude';
   if (t.includes('codex')) return 'codex';
   if (t.includes('antigravity') || t === 'agy') return 'antigravity';
+  if (t.includes('grok')) return 'grok';
   return '';
 }
 

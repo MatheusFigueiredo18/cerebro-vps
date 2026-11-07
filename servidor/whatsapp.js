@@ -1,6 +1,6 @@
 // WhatsApp: normalização de número, quem pode dar ordens e a fila que roda o motor sem tela.
 import { lerJson, gravarJson, existeJson } from './dados.js';
-import { motorDe, localizar, rodarSemTela, promptPainel, PROMPT_WHATS, lerPreferencias } from './motores.js';
+import { motorDe, guardaHistorico, localizar, rodarSemTela, promptPainel, PROMPT_WHATS, lerPreferencias } from './motores.js';
 
 const SEIS_HORAS_MS = 6 * 3600_000;
 const CACHE_NUMERO_MS = 10 * 60_000;
@@ -120,7 +120,7 @@ export function criarWhatsApp({ cfg, evo, conversas, agora = Date.now, log = () 
       });
       resposta = r.resposta;
       if (r.sessao && motor !== 'claude' && !c.sessaoMotor) c.sessaoMotor = r.sessao;
-      if (motor === 'antigravity') {
+      if (guardaHistorico(motor)) {
         // sem registro legível em disco, o painel guarda o histórico
         c.historico = [...(c.historico ?? []), { papel: 'voce', texto: pedido, quando: c.ultimaAtividade }, { papel: 'claude', texto: resposta, quando: agora() }].slice(-300);
       }

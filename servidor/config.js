@@ -35,7 +35,7 @@ export function configuracao(env = process.env) {
     casa,
     senha: env.CORE_OS_PASSWORD || '',
     tokenPonte: env.CORE_OS_HOOK_TOKEN || '',
-    bins: { claude: env.CLAUDE_BIN || 'claude', codex: env.CODEX_BIN || 'codex', antigravity: env.AGY_BIN || 'agy' },
+    bins: { claude: env.CLAUDE_BIN || 'claude', codex: env.CODEX_BIN || 'codex', antigravity: env.AGY_BIN || 'agy', grok: env.GROK_BIN || 'grok' },
     codexHome: env.CODEX_HOME || path.join(casa, '.codex'),
     evo: { url: (env.EVO_URL || '').replace(/\/+$/, ''), key: env.EVO_KEY || '', instancia: env.EVO_INSTANCE || 'cerebro' },
     whatsWebhook: env.WHATS_WEBHOOK || 'http://n8n:5678/webhook/core-os-whatsapp',
