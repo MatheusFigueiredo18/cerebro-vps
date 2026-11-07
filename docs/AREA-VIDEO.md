@@ -3,9 +3,9 @@
 Status: desenho para aprovação. Nada codado ainda.
 
 ## Ideia
-Hoje a guia Conversas tem um tipo de área de trabalho: um terminal do Claude com cards em volta. O Matheus quer **dois tipos de área**:
-1. **Conversa** (a atual): terminal com o Claude e cards de arquivos.
-2. **Vídeo**: um canvas de nós ligados por linhas, no estilo dos Spaces da Magnific, onde referências e um prompt viram um vídeo.
+Decisão do Matheus (2026-11-07): a **Criação de vídeo é um espaço NOVO, ao lado dos atuais**. Nada substitui nem sai (Grafo, Conversas, Conteúdos, WhatsApp e o resto ficam como estão). Conversas continua sendo o terminal do Claude com cards.
+
+O novo espaço é um canvas de nós ligados por linhas, no estilo dos Spaces da Magnific, onde referências e um prompt viram um vídeo.
 
 ## Decisão de motor
 **Remotion é a base** (roda na própria VPS, sem serviço de fora). **Magnific é opcional**, só para clipe ou imagem gerados por IA. Se a Magnific estiver fora do ar, sem créditos ou sem login na VPS, o resto da área continua funcionando.
@@ -37,7 +37,7 @@ Hoje a guia Conversas tem um tipo de área de trabalho: um terminal do Claude co
 Hoje o espaço das Conversas fica no `localStorage` do navegador. Na área de vídeo o grafo (nós, ligações, prompts) vai para o servidor, em `conteudo/video/<area>/area.json`. Assim o Claude pode ler e editar a mesma área, e ela não some ao trocar de aparelho.
 
 ## Fases
-1. **Tipo de área:** na "Nova conversa", escolher Conversa ou Vídeo. A área de vídeo abre vazia, reaproveitando câmera, zoom, cards e bolinhas. Sem gerar nada.
+1. **Espaço novo:** uma função "Criação de vídeo" no dock das Funções, ao lado das outras. Abre vazia, reaproveitando câmera, zoom, cards e bolinhas. Sem gerar nada.
 2. **Nós e ligações tipadas:** Referência, Lista, Prompt e Vídeo; ligar só tipos compatíveis; salvar no servidor.
 3. **Gerador Remotion:** jobs, render na VPS, saída como card de vídeo.
 4. **Gerador Magnific:** MCP autenticado na VPS, nó opcional.
