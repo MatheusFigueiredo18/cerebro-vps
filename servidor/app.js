@@ -17,6 +17,7 @@ import { resolverNoVault, arvore, listarPasta, conteudos, grafo, tipoMidia, relD
 import { criarCapas } from './capas.js';
 import { criarPagina, criarPasta, lerPagina, salvarPagina, buscar } from './paginas.js';
 import { criarBanco, lerBanco, criarLinha, salvarProp, salvarEsquema } from './bancos.js';
+import { criarLousas } from './lousas.js';
 
 const CLIENTE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'cliente');
 const MODULOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'node_modules');
@@ -58,8 +59,9 @@ export function criarServidor(cfg, deps = {}) {
   });
 
   const json1mb = express.json({ limit: '1mb' });
-  // PUT /api/pagina tem parser próprio de 3 MB depois do login; o envio de arquivo lê o corpo cru
-  app.use('/api', (req, res, next) => ((req.method === 'PUT' && req.path === '/pagina') || req.path === '/enviar' ? next() : json1mb(req, res, next)));
+  // PUT /api/pagina (3 MB) e PUT /api/lousas/:id (10 MB) têm parser próprio depois do login; o envio de arquivo lê o corpo cru
+  const corpoProprio = (req) => (req.method === 'PUT' && (req.path === '/pagina' || /^\/lousas\/[^/]+$/.test(req.path))) || req.path === '/enviar';
+  app.use('/api', (req, res, next) => (corpoProprio(req) ? next() : json1mb(req, res, next)));
 
   app.post('/api/login', (req, res) => {
     const r = auth.entrar(req.body?.senha, req.ip);
@@ -139,7 +141,7 @@ export function criarServidor(cfg, deps = {}) {
     } catch (e) {
       const m = String(e.message);
       const status = e.code === 'CONFLITO' ? 409
-        : e.code === 'ENOENT' || /não encontrada|não é um banco/.test(m) ? 404
+        : e.code === 'ENOENT' || /não encontrad[ao]|não é um banco/.test(m) ? 404
           : /fora do vault|somente \.md|grande demais|inválid/.test(m) ? 400 : 500;
       if (status === 500) log('erro em página/banco', req.method, req.path, e);
       res.status(status).json({ erro: status === 500 ? 'Erro interno.' : m });
@@ -162,6 +164,14 @@ export function criarServidor(cfg, deps = {}) {
   app.post('/api/banco/linhas', rotaVault((b) => criarLinha(vault, b.pasta, b.titulo)));
   app.patch('/api/banco/linha', rotaVault((b) => salvarProp(vault, b.caminho, b.prop, b.valor)));
   app.put('/api/banco/esquema', rotaVault((b) => salvarEsquema(vault, b.pasta, b.esquema)));
+
+  // ---------- lousas ----------
+  const lousas = criarLousas(cfg.dados, agora);
+  app.get('/api/lousas', rotaVault(() => lousas.listar()));
+  app.post('/api/lousas', rotaVault((b) => lousas.criar(b.titulo)));
+  app.get('/api/lousas/:id', (req, res) => rotaVault(() => lousas.ler(req.params.id))(req, res));
+  app.put('/api/lousas/:id', express.json({ limit: '10mb' }), (req, res) => rotaVault((b) => lousas.salvar(req.params.id, b))(req, res));
+  app.post('/api/lousas/:id/duplicar', (req, res) => rotaVault(() => lousas.duplicar(req.params.id))(req, res));
 
   // ---------- conversas ----------
   app.post('/api/conversas', (req, res) => {

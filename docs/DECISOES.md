@@ -30,7 +30,7 @@
 | 22 | `qr` sem prefixo `data:` ganha `data:image/png;base64,` | A rota promete uma data URL; algumas versões da Evolution mandam só o base64 | Nenhum |
 | 23 | `posicao` da ponte conta as mensagens esperando mais a que está rodando | "Tamanho da fila" ficava ambíguo; assim 1 significa "é a próxima ou já está rodando" | Só informativo para o n8n |
 | 24 | Corpo da ponte sem `tipo` é tratado como `texto` | O fluxo antigo pode não mandar o campo | Uma mídia sem `tipo` vira texto vazio e recebe 400 |
-| 25 | `sessaoMotor` só é gravado para Codex, Antigravity e Grok | No Claude Code o id da sessão já é o id da conversa; no Grok a sessão é nomeada com o id da conversa (-s) | Nenhum |
+| 25 | `sessaoMotor` só é gravado para Codex, Antigravity e Grok | No Claude Code o id da sessão já é o id da conversa; no Grok a sessão é criada com o id da conversa (-s) e retomada com --resume | Nenhum |
 | 26 | Catálogo com textos próprios: 7 aplicações e 8 MCPs; aplicação instalada se achar o executável, um pacote npm global nas pastas padrão (sem rodar `npm`) ou uma pasta de cache na casa | Rápido o bastante para a consulta de 3 s das configurações | Instalação fora das pastas padrão aparece como não instalada |
 | 27 | Projeto do `~/.claude.json` casa com o cérebro por `path.resolve` igual ao caminho real | O Claude Code grava o caminho absoluto do projeto | Cérebro acessado por link simbólico pode não casar |
 | 28 | A senha aleatória (quando `CORE_OS_PASSWORD` está vazia) é gerada dentro de `criarServidor`, não só no `index.js` | Qualquer forma de subir o servidor fica protegida, inclusive testes e scripts | Nenhum |
@@ -54,6 +54,10 @@
 | 41 | Arquivo de tipo desconhecido na guia de leitura mostra "sem prévia" e botão de baixar, como no visor, em vez de texto pré-formatado | Binário como texto vira lixo na tela | Arquivo de texto com extensão rara precisa ser baixado |
 | 42 | Funções na lateral: fixar, subir, descer e ocultar guardados no navegador com `aplicarPrefs`; subir e descer só trocam dentro do mesmo grupo (fixas ou não) | Os fixos sempre vêm primeiro em `aplicarPrefs` | Nenhum |
 | 43 | O grafo só simula enquanto a guia dele está à mostra; com a aba do navegador em segundo plano segue em ritmo menor por `setTimeout` | Economiza processador com o grafo fora da vista | Ao voltar, a simulação recomeça morna em vez de continuar de onde parou |
+| 44 | **Quadro** (2026-11-07; nos arquivos e na API o nome é `lousa`): função nova no dock, depois do n8n; quadro infinito de desenho livre (caneta, marca-texto, desenho inteligente, borrachas, laço, post-it, texto, formas, setas presas, quadros, zoom, minimapa, exportar PNG). Cada lousa é um JSON em `<dados>/lousas/<id>.json`, salvo sozinho (`PUT /api/lousas/:id`) | Pedido do Matheus depois de testar o Miro; fica ao lado de Conversas e n8n | Sem histórico de versões e sem excluir (decisão dele e regra do vault de nunca apagar) |
+| 45 | Lousas: versão otimista (`versao` no arquivo; o PUT com versão velha dá 409) em vez de último a gravar vence | Duas abas ou aparelhos não se sobrescrevem em silêncio | O segundo precisa tocar em "Recarregar" e perde o que ainda não tinha salvo |
+| 46 | Lousas: servidor valida só o formato (tipos, números finitos, tamanhos; 20 mil objetos, 50 mil pontos por traço, 8 MB) e nunca desenha; o texto vai ao canvas por `fillText`, nunca como HTML | Um JSON malicioso não vira script nem enche o disco | Objetos com campos extras passam como vieram |
+| 47 | Lousas: a geometria (formas, seleção, borrachas, transformações) fica em `cliente/lousa-geo.js`, pura e testada; a tela em `cliente/lousa.js` | Mesmo padrão de `camera.js` e `grafo-fisica.js` | Nenhum |
 
 ## Instalação (fase 3)
 

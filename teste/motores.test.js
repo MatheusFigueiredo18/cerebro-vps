@@ -49,9 +49,9 @@ test('argumentos do terminal por motor', () => {
   assert.deepEqual(argsTerminal({ id: ID, motor: 'antigravity' }, p), []);
   assert.deepEqual(argsTerminal({ id: ID, motor: 'antigravity', iniciouTerminal: 1 }, p), ['--continue']);
   assert.deepEqual(argsTerminal({ id: ID, motor: 'antigravity', sessaoMotor: 'cv', iniciouTerminal: 1 }, p), ['--conversation', 'cv']);
-  assert.deepEqual(argsTerminal({ id: ID, motor: 'grok' }, p), []);
-  assert.deepEqual(argsTerminal({ id: ID, motor: 'grok', iniciouTerminal: 1 }, p), ['--continue']);
-  assert.deepEqual(argsTerminal({ id: ID, motor: 'grok', sessaoMotor: ID, iniciouTerminal: 1 }, p), ['--resume', ID]);
+  assert.deepEqual(argsTerminal({ id: ID, motor: 'grok' }, p), ['-s', ID, '--rules', p]);
+  assert.deepEqual(argsTerminal({ id: ID, motor: 'grok', iniciouTerminal: 1 }, p), ['--resume', ID, '--rules', p]);
+  assert.deepEqual(argsTerminal({ id: ID, motor: 'grok', sessaoMotor: 'outra' }, p), ['--resume', 'outra', '--rules', p]);
 });
 
 test('argumentos sem tela por motor', () => {
@@ -66,8 +66,8 @@ test('argumentos sem tela por motor', () => {
   const agy = argsSemTela({ id: ID, motor: 'antigravity' }, 'oi', p, false, '');
   assert.deepEqual(agy, ['-p', '[PROMPT]\n\noi', '--output-format', 'json', '--dangerously-skip-permissions', '--print-timeout', '20m']);
   assert.deepEqual(argsSemTela({ id: ID, motor: 'antigravity', sessaoMotor: 'cv' }, 'oi', p, false, ''), ['-p', 'oi', '--output-format', 'json', '--dangerously-skip-permissions', '--print-timeout', '20m', '--conversation', 'cv']);
-  assert.deepEqual(argsSemTela({ id: ID, motor: 'grok' }, 'oi', p, false, ''), ['-p', '[PROMPT]\n\noi', '-s', ID, '--always-approve']);
-  assert.deepEqual(argsSemTela({ id: ID, motor: 'grok', sessaoMotor: ID }, 'oi', p, false, ''), ['-p', 'oi', '-s', ID, '--always-approve']);
+  assert.deepEqual(argsSemTela({ id: ID, motor: 'grok' }, 'oi', p, false, ''), ['-p', 'oi', '--rules', 'PROMPT', '--always-approve', '-s', ID]);
+  assert.deepEqual(argsSemTela({ id: ID, motor: 'grok', sessaoMotor: ID }, 'oi', p, false, ''), ['-p', 'oi', '--rules', 'PROMPT', '--always-approve', '--resume', ID]);
 });
 
 test('ambiente do agente: remove herança de agente e segredos, injeta sessão', () => {
@@ -111,7 +111,7 @@ test('rodarSemTela: antigravity lê o JSON', async () => {
 
 test('rodarSemTela: grok devolve a saída padrão e a sessão é o id da conversa', async () => {
   const r = await rodarSemTela(opcoes('grok'));
-  assert.match(r.resposta, /^eco:\[P\]\n\nolá /);
+  assert.match(r.resposta, /^eco:olá /);
   assert.equal(r.sessao, ID);
 });
 

@@ -11,6 +11,7 @@ export const FUNCOES = [
   { id: 'conteudos', nome: 'Conteúdos', icone: 'conteudos', faz: 'Galeria do que foi gerado e enviado' },
   { id: 'whatsapp', nome: 'WhatsApp', icone: 'whatsapp', faz: 'Conexão, motor e quem pode dar ordens' },
   { id: 'n8n', nome: 'n8n', icone: 'n8n', faz: 'Automações do servidor' },
+  { id: 'lousa', nome: 'Quadro', icone: 'lousa', faz: 'Desenho livre, post-its e formas num quadro infinito' },
   { id: 'video', nome: 'Criação de vídeo', icone: 'filme', faz: 'Nós ligados que viram vídeo' },
 ];
 

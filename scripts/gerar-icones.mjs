@@ -17,6 +17,12 @@ const MAPA = {
   recolher: 'chevrons-down-up', recarregar: 'refresh-cw', alvo: 'crosshair', baixar: 'download', enviar: 'upload', fixar: 'pin',
   olho: 'eye', ocultar: 'eye-off', cima: 'chevron-up', baixo: 'chevron-down', play: 'play', terminal: 'terminal', lateral: 'panel-left', copiar: 'copy', lateralDireita: 'panel-right',
   link: 'link', inbox: 'inbox', relogio: 'clock', robo: 'bot', config: 'settings',
+  // Lousas
+  lousa: 'presentation', mao: 'hand', cursor: 'mouse-pointer-2', caneta: 'pen', marca: 'highlighter', inteligente: 'wand-sparkles', borracha: 'eraser',
+  precisao: 'scissors', laco: 'lasso', postit: 'sticky-note', texto: 'type', formas: 'shapes', retangulo: 'rectangle-horizontal', oval: 'circle',
+  triangulo: 'triangle', losango: 'diamond', linha: 'slash', setaDiag: 'arrow-up-right', quadro: 'frame', desfazer: 'undo-2', refazer: 'redo-2',
+  grade: 'grid-3x3', mapa: 'map', ajustar: 'maximize', lixeira: 'trash-2', cadeado: 'lock', destravar: 'lock-open', frente: 'arrow-up-to-line',
+  tras: 'arrow-down-to-line', agrupar: 'group', paleta: 'palette', balde: 'paint-bucket', ajuda: 'circle-help',
 };
 
 const interno = (svg) => svg.replace(/<!--[\s\S]*?-->/g, '').replace(/<svg[\s\S]*?>/, '').replace(/<\/svg>\s*$/, '').replace(/\s+/g, ' ').replace(/> </g, '><').trim();

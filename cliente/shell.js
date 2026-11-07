@@ -3,7 +3,7 @@
 import * as G from './guias.js';
 import { $, el, icone, ler, guardar, emitir, ouvir } from './comum.js';
 
-const ICONE = { grafo: 'grafo', pagina: 'doc', banco: 'banco', arquivo: 'doc', conversas: 'conversa', whatsapp: 'whatsapp', n8n: 'n8n', conteudos: 'conteudos', video: 'filme' };
+const ICONE = { grafo: 'grafo', pagina: 'doc', banco: 'banco', arquivo: 'doc', conversas: 'conversa', whatsapp: 'whatsapp', n8n: 'n8n', conteudos: 'conteudos', video: 'filme', lousa: 'lousa' };
 const FAVORITAVEIS = new Set(['pagina', 'banco', 'arquivo']);
 const tipos = new Map(); // tipo -> montar(corpo, guia) => { limpar?, podeFechar?, mostrar?, esconder? }
 const corpos = new Map(); // id -> { el, vida }

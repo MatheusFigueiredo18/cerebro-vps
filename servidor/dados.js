@@ -6,10 +6,11 @@ export function lerJson(dir, nome, padrao) {
   try { return JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8')) ?? padrao; } catch { return padrao; }
 }
 
-export function gravarJson(dir, nome, valor) {
+// compacto: sem recuo, para arquivos grandes (lousas com milhares de pontos); os demais seguem legíveis
+export function gravarJson(dir, nome, valor, { compacto = false } = {}) {
   const destino = path.join(dir, nome);
   const temp = `${destino}.${process.pid}.tmp`;
-  const texto = `${JSON.stringify(valor, null, 2)}\n`;
+  const texto = `${compacto ? JSON.stringify(valor) : JSON.stringify(valor, null, 2)}\n`;
   fs.writeFileSync(temp, texto);
   try {
     fs.renameSync(temp, destino);

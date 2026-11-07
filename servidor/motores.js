@@ -20,7 +20,7 @@ export const MOTORES = {
   },
   grok: {
     nome: 'Grok',
-    login: 'Instale o Grok Build no servidor (precisa de plano SuperGrok), rode grok no terminal do servidor e entre pelo link, ou coloque XAI_API_KEY no .env do servidor.',
+    login: 'Precisa de plano SuperGrok. Rode grok login --device-code no terminal do servidor e entre com o código, ou coloque XAI_API_KEY no .env do servidor.',
   },
 };
 
@@ -83,8 +83,9 @@ export function argsTerminal(conversa, prompt, registroExiste) {
     return conversa.iniciouTerminal ? ['--continue'] : [];
   }
   if (motor === 'grok') {
-    if (conversa.sessaoMotor) return ['--resume', conversa.sessaoMotor];
-    return conversa.iniciouTerminal ? ['--continue'] : [];
+    // -s só cria a sessão com o id da conversa; depois dela existir, retoma com --resume
+    const volta = conversa.sessaoMotor || conversa.iniciouTerminal;
+    return [...(volta ? ['--resume', conversa.sessaoMotor || conversa.id] : ['-s', conversa.id]), '--rules', prompt];
   }
   return [registroExiste ? '--resume' : '--session-id', conversa.id, '--append-system-prompt', prompt];
 }
@@ -102,9 +103,9 @@ export function argsSemTela(conversa, texto, prompt, registroExiste, arquivoSaid
     return conversa.sessaoMotor ? [...args, '--conversation', conversa.sessaoMotor] : args;
   }
   if (motor === 'grok') {
-    // a sessão é nomeada com o id da conversa (-s cria na primeira vez e retoma depois); saída em texto puro, o padrão da CLI
-    const pedido = conversa.sessaoMotor ? texto : `[${prompt}]\n\n${texto}`;
-    return ['-p', pedido, '-s', conversa.id, '--always-approve'];
+    // sessão nomeada com o id da conversa: -s cria na primeira vez, --resume retoma; saída em texto puro (padrão da CLI)
+    const base = ['-p', texto, '--rules', prompt, '--always-approve'];
+    return conversa.sessaoMotor ? [...base, '--resume', conversa.sessaoMotor] : [...base, '-s', conversa.id];
   }
   return ['-p', texto, registroExiste ? '--resume' : '--session-id', conversa.id, '--append-system-prompt', prompt,
     '--output-format', 'text', '--permission-mode', 'acceptEdits', '--allowedTools', ...FERRAMENTAS_WHATS];
