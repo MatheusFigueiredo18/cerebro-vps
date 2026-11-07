@@ -20,6 +20,7 @@ const CAB = 20; // altura do ponto das portas, a partir do topo do card
 
 // saida/entradas usam tipos de ligação: midia (vídeo ou imagem), lista, texto, video
 const TIPOS = {
+  principal: { nome: 'Conteúdo principal', sub: 'vídeo ou imagem', icone: 'filme', w: 240, h: 360, entradas: [], saida: 'midia', faz: 'O vídeo ou a imagem que é todo o contexto do vídeo: arraste de Conteúdos' },
   referencia: { nome: 'Referência', sub: 'vídeo ou imagem', icone: 'imagem', w: 220, h: 230, entradas: [], saida: 'midia', faz: 'Arraste um vídeo ou imagem de Conteúdos para o canvas' },
   lista: { nome: 'Lista', sub: 'lista', icone: 'conteudos', w: 190, h: 120, entradas: ['midia'], saida: 'lista', faz: 'Agrupa várias referências' },
   prompt: { nome: 'Prompt', sub: 'texto', icone: 'doc', w: 280, h: 190, entradas: [], saida: 'texto', faz: 'Texto livre: estilo, motion, efeitos, música, legenda' },
@@ -295,14 +296,14 @@ function montar(corpo) {
     vazio.replaceChildren(
       el('span', { class: 'video-vazio-icone' }, icone('filme')),
       ...(atual
-        ? [el('h2', {}, atual.titulo), el('p', {}, 'Clique em um nó na faixa de cima para criar, ou arraste um vídeo ou imagem de Conteúdos para cá.')]
+        ? [el('h2', {}, atual.titulo), el('p', {}, 'Clique em um nó na faixa de baixo para criar, ou arraste um vídeo ou imagem de Conteúdos para cá.')]
         : [el('h2', {}, 'Criação de vídeo'), el('p', {}, 'Crie uma sessão para começar: cada vídeo é uma sessão com o próprio canvas.'),
           el('button', { type: 'button', class: 'bt primario', onclick: () => novoVideo() }, icone('mais'), 'Novo vídeo')]));
   }
 
   function adicionar(tipo, extra = {}) {
     if (!ativa) novoVideo();
-    if (tipo === 'referencia' && !extra.caminho) {
+    if ((tipo === 'referencia' || tipo === 'principal') && !extra.caminho) {
       abrirJanela(); // abre a galeria; a pessoa arrasta o arquivo para o canvas
       avisar('Arraste um vídeo ou imagem de Conteúdos para o canvas.');
       return null;
@@ -327,13 +328,13 @@ function montar(corpo) {
   }
 
   function corpoDoNo(no) {
-    if (no.tipo === 'referencia') {
+    if (no.tipo === 'referencia' || no.tipo === 'principal') {
       const c = no.dados.caminho;
       const tipo = tipoArquivo(c);
       const miniatura = tipo === 'video'
         ? el('video', { src: `${urlArquivo(c)}#t=0.1`, muted: true, loop: true, preload: 'metadata', playsInline: true, title: 'Passe o mouse para ver a prévia' })
         : el('img', { src: urlArquivo(c), alt: nomeBase(c), draggable: false, loading: 'lazy' });
-      return el('div', { class: 'video-ref' }, miniatura, el('small', { title: c }, nomeBase(c)));
+      return el('div', { class: `video-ref${no.tipo === 'principal' ? ' principal' : ''}` }, miniatura, el('small', { title: c }, nomeBase(c)));
     }
     if (no.tipo === 'prompt') {
       const area = el('textarea', { class: 'video-prompt', placeholder: 'Descreva o vídeo: estilo, motion, efeitos, música, legenda…', rows: 6, 'aria-label': 'Prompt' });
@@ -507,9 +508,15 @@ function montar(corpo) {
     if (!ativa) novoVideo();
     if (arquivos.length) caminhos.push(...await enviarArquivos(arquivos));
     const midias = caminhos.filter((c) => ['imagem', 'video'].includes(tipoArquivo(c)));
-    if (caminhos.length > midias.length) avisar('Só vídeo ou imagem vira Referência; os outros arquivos foram ignorados.');
+    if (caminhos.length > midias.length) avisar('Só vídeo ou imagem entra no canvas; os outros arquivos foram ignorados.');
     const base = paraMundo(ponto.x, ponto.y);
-    midias.forEach((c, i) => adicionar('referencia', { caminho: c, x: Math.round(base.x - TIPOS.referencia.w / 2 + i * 30), y: Math.round(base.y - 40 + i * 30) }));
+    // o primeiro vídeo ou imagem vira o Conteúdo principal; os seguintes entram como Referência
+    let temPrincipal = grafo.nos.some((n) => n.tipo === 'principal');
+    midias.forEach((c, i) => {
+      const tipo = temPrincipal ? 'referencia' : 'principal';
+      temPrincipal = true;
+      adicionar(tipo, { caminho: c, x: Math.round(base.x - TIPOS[tipo].w / 2 + i * 30), y: Math.round(base.y - 40 + i * 30) });
+    });
   }
   palco.addEventListener('dragover', (e) => {
     if (!arrastoTemArquivos(e.dataTransfer)) return;
