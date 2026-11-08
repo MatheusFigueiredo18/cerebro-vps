@@ -63,6 +63,7 @@
   .lousa-pct { min-width: 50px; height: 40px; }
   .lousa-mini { right: 8px; top: 108px; bottom: auto; }
   .lousa-menu { right: 8px; bottom: auto; top: 108px; }
+  .lousa-menu.lousa-menu-dir { right: auto; }
   .lousa-ctx { max-width: calc(100% - 16px); overflow-x: auto; scrollbar-width: none; }
   .lousa-ctx .lousa-bt { width: 42px; height: 42px; }
   .lousa-pop { max-width: calc(100% - 16px); }

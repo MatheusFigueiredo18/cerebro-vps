@@ -3,6 +3,8 @@
 // o teclado e a conversa com a API (/api/lousas). Cada lousa é um arquivo JSON na pasta de dados; nada é apagado.
 import { el, icone, api, ler, guardar, avisar, ouvir } from './comum.js';
 import { zoomEm, enquadrar, pinca } from './camera.js';
+import { enviarArquivos } from './envio.js';
+import { urlArquivo } from './markdown.js';
 import * as G from './lousa-geo.js';
 import * as shell from './shell.js';
 
@@ -18,7 +20,7 @@ const FERRAMENTAS = [
 const FORMAS = [['rect', 'retangulo', 'Retângulo (R)'], ['ellipse', 'oval', 'Oval (O)'], ['tri', 'triangulo', 'Triângulo'], ['diamond', 'losango', 'Losango']];
 const LINHAS = [['line', 'linha', 'Linha'], ['arrow', 'setaDiag', 'Seta (L)']];
 const DICAS = {
-  select: 'Clique para selecionar, arraste para mover. Dois cliques escrevem texto. Arraste num espaço vazio para selecionar vários.',
+  select: 'Clique para selecionar, arraste para mover. Arraste o fundo para mover o quadro; Shift + arraste seleciona vários. Ctrl+V cola imagem ou texto.',
   hand: 'Arraste para mover o quadro. Dica: segure Espaço em qualquer ferramenta.',
   pen: 'Arraste para desenhar. Escolha cor e espessura abaixo. Ctrl+Z desfaz.',
   hl: 'Arraste sobre o que quiser destacar. O marca-texto é transparente.',
@@ -36,6 +38,15 @@ const DICAS = {
 };
 const CURSOR = { select: 'default', hand: 'grab', pen: 'crosshair', hl: 'crosshair', smart: 'crosshair', er: 'cell', pre: 'cell', lasso: 'crosshair', sticky: 'copy', text: 'text' };
 const TECLAS = { v: 'select', h: 'hand', p: 'pen', e: 'er', t: 'text', n: 'sticky', r: 'rect', o: 'ellipse', l: 'arrow', f: 'frame', d: 'smart', q: 'lasso', s: 'rect' };
+// Estilos de fundo (cada quadro guarda o seu). Medidas em unidades do mundo; margem e caixas ficam na coluna x = 0, como a borda da página.
+const FUNDOS = [
+  ['liso', 'Liso', {}], ['pauta-e', 'Pautado estreito', { linhas: 28 }], ['pauta-l', 'Pautado largo', { linhas: 44 }],
+  ['quad-p', 'Quadriculado pequeno', { grade: 24 }], ['quad-m', 'Quadriculado médio', { grade: 40 }], ['quad-g', 'Quadriculado grande', { grade: 64 }],
+  ['pontos-p', 'Pontilhado pequeno', { pontos: 20 }], ['pontos-m', 'Pontilhado médio', { pontos: 32 }], ['pontos-g', 'Pontilhado grande', { pontos: 48 }],
+  ['check', 'Checklist', { linhas: 40, caixas: true }], ['caderno', 'Caderno com margem', { linhas: 32, margem: '#E2553B' }], ['cornell', 'Margem simples', { linhas: 36, margem: 'grade' }],
+  ['musica', 'Pauta musical', { pauta: true }],
+];
+const FUNDO_PADRAO = 'pontos-m';
 const GRUPO_FORMAS = new Set(['rect', 'ellipse', 'tri', 'diamond']);
 const GRUPO_LINHAS = new Set(['line', 'arrow']);
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -49,7 +60,7 @@ function montar(corpo) {
   corpo.classList.toggle('sem-coluna', ler('lousaColunaRecolhida', estreita()) === true);
   const prefs = ler('lousaPrefs', {});
   const S = {
-    ferr: 'select', sel: [], grade: prefs.grade !== false, mini: prefs.mini === true, er: 20, penIdx: 0, espaco: false,
+    ferr: 'select', sel: [], fundoInicial: prefs.grade === false ? 'liso' : FUNDO_PADRAO, ultimoFundo: FUNDO_PADRAO, mini: prefs.mini === true, er: 20, penIdx: 0, espaco: false,
     pens: [{ c: 'ink', s: 3 }, { c: '#E2553B', s: 6 }, { c: '#0F8F6E', s: 14 }], hl: { c: '#E3A008', s: 10 },
     forma: { c: 'ink', f: null, s: 3 }, postit: POSTITS[0], txt: { c: 'ink', fs: 22 },
   };
@@ -57,7 +68,7 @@ function montar(corpo) {
   let cur = null; // lousa aberta: { id, titulo, versao }
   let objs = [];
   let cam = { x: 80, y: 80, z: 1 };
-  let hist = []; let hi = -1; let clip = []; let clipN = 0;
+  let hist = []; let hi = -1; let clip = [];
   let vivo = null; let arrasto = null; let hover = null; let editando = null; let quadro = 0;
   let sujo = false; let enviando = false; let falhou = false; let timerSalvar = 0; let timerRetry = 0;
   let vistaMod = 'lista'; const pontos = new Map();
@@ -78,7 +89,7 @@ function montar(corpo) {
   const btnRefazer = bt('lousa-bt', 'Refazer (Ctrl+Y)', 'refazer', () => refazer(), { disabled: true });
   const pilula = el('div', { class: 'lousa-desfazer lousa-painel' }, btnDesfazer, btnRefazer);
   const pct = el('button', { type: 'button', class: 'lousa-pct', title: 'Opções de zoom', onclick: () => menuZoom() }, '100%');
-  const btnGrade = bt('lousa-bt', 'Grade (G)', 'grade', () => alternarGrade());
+  const btnGrade = bt('lousa-bt', 'Estilo do fundo (G liga e desliga)', 'grade', () => abrirFundos());
   const btnMini = bt('lousa-bt', 'Minimapa (M)', 'mapa', () => alternarMini());
   const zoom = el('div', { class: 'lousa-zoom lousa-painel' }, btnGrade, btnMini,
     bt('lousa-bt', 'Menos zoom (−)', 'menos', () => zoomCentro(0.8)), pct, bt('lousa-bt', 'Mais zoom (+)', 'mais', () => zoomCentro(1.25)),
@@ -102,7 +113,7 @@ function montar(corpo) {
       ? el('ul', {}, el('li', {}, el('b', {}, 'Desenhar: '), 'escolha a caneta embaixo e arraste o dedo.'), el('li', {}, el('b', {}, 'Errou? '), 'toque na seta curva, no alto à esquerda.'),
         el('li', {}, el('b', {}, 'Mover e dar zoom: '), 'use dois dedos (pinça), ou a mão.'), el('li', {}, el('b', {}, 'Lista de quadros: '), 'toque no ícone do canto de cima, à direita.'))
       : el('ul', {}, el('li', {}, el('b', {}, 'Desenhar: '), 'escolha a caneta e arraste.'), el('li', {}, el('b', {}, 'Errou? '), 'Ctrl+Z ou a seta curva, embaixo à esquerda.'),
-        el('li', {}, el('b', {}, 'Mover o quadro: '), 'segure Espaço e arraste, ou use a mão.'), el('li', {}, el('b', {}, 'Tudo salva sozinho: '), 'veja o aviso "Salvo" no topo.')));
+        el('li', {}, el('b', {}, 'Mover o quadro: '), 'arraste o fundo ou role o mouse; Ctrl + roda dá zoom.'), el('li', {}, el('b', {}, 'Tudo salva sozinho: '), 'veja o aviso "Salvo" no topo.')));
   const expImg = el('img', { class: 'lousa-exp-img', alt: 'Pré-visualização da exportação' });
   const expInfo = el('span', { class: 'lousa-exp-info' });
   const expTudo = el('input', { type: 'radio', name: 'lousa-exp', value: 'tudo', checked: true, onchange: () => renderExport() });
@@ -190,6 +201,12 @@ function montar(corpo) {
     else if (o.k === 'diamond') { c.moveTo(w / 2, 0); c.lineTo(w, h / 2); c.lineTo(w / 2, h); c.lineTo(0, h / 2); c.closePath(); }
     else c.rect(0, 0, w, h);
   }
+  const imagens = new Map(); // caminho no cérebro -> <img>; ao terminar de carregar, redesenha
+  function imagemDe(src) {
+    let im = imagens.get(src);
+    if (!im) { im = new Image(); im.onload = () => redesenhar(); im.onerror = () => { im.falhou = true; redesenhar(); }; im.src = urlArquivo(src); imagens.set(src, im); }
+    return im;
+  }
   function objeto(c, o, z, pid, semTexto) {
     c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
     if (o.t === 'stroke') { c.globalAlpha = o.tool === 'hl' ? 0.35 : 1; c.strokeStyle = cor(o.c); c.lineWidth = o.tool === 'hl' ? o.s * 3 : o.s; caminho(c, o.p); c.stroke(); }
@@ -202,6 +219,11 @@ function montar(corpo) {
       if (o.t === 'shape') { formaCaminho(c, o); if (o.f) { c.fillStyle = cor(o.f); c.fill(); } c.strokeStyle = cor(o.c); c.lineWidth = o.s; c.stroke(); if (!semTexto) bloco(c, o.text, 8, 0, o.w - 16, o.h, o.fs, cor(o.c), 'center', true); }
       else if (o.t === 'sticky') { c.shadowColor = 'rgba(0,0,0,.22)'; c.shadowBlur = 10; c.shadowOffsetY = 3; c.fillStyle = o.f; c.fillRect(0, 0, o.w, o.h); c.shadowColor = 'transparent'; if (!semTexto) bloco(c, o.text, 12, 0, o.w - 24, o.h, fsPostit(c, o), '#1d1d1b', 'center', true); }
       else if (o.t === 'text') { if (!semTexto) bloco(c, o.text, 0, 0, 1e5, o.h, o.fs, cor(o.c), 'left', false); }
+      else if (o.t === 'image') {
+        const im = imagemDe(o.src);
+        if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, o.w, o.h);
+        else { c.fillStyle = TH.grade; c.fillRect(0, 0, o.w, o.h); c.font = `${14 / z}px system-ui, sans-serif`; c.fillStyle = TH.mudo; c.textBaseline = 'middle'; c.textAlign = 'center'; c.fillText(im.falhou ? 'Imagem não encontrada' : 'Carregando imagem…', o.w / 2, o.h / 2); }
+      }
       else if (o.t === 'frame') {
         c.fillStyle = TH.quadro; c.fillRect(0, 0, o.w, o.h); c.strokeStyle = TH.grade; c.lineWidth = 1 / z; c.strokeRect(0, 0, o.w, o.h);
         if (!semTexto) { c.font = `${14 / z}px system-ui, sans-serif`; c.fillStyle = TH.mudo; c.textBaseline = 'bottom'; c.textAlign = 'left'; c.fillText(o.title || 'Moldura', 0, -6 / z); }
@@ -209,15 +231,25 @@ function montar(corpo) {
     }
     c.restore();
   }
-  function pontilhado() {
-    const sp = 32 * cam.z; if (sp < 9) return;
-    g.fillStyle = TH.grade; const x0 = ((cam.x % sp) + sp) % sp; const y0 = ((cam.y % sp) + sp) % sp; const r = Math.max(0.8, Math.min(1.6, cam.z * 1.1));
-    for (let x = x0; x < W; x += sp) for (let y = y0; y < H; y += sp) g.fillRect(x - r / 2, y - r / 2, r, r);
+  // desenha o estilo de fundo em c (coordenadas de tela, sem DPR) para a câmera k numa área w x h
+  function desenharFundo(c, id, k, w, h) {
+    const f = (FUNDOS.find((x) => x[0] === id) ?? FUNDOS[0])[2]; const z = k.z;
+    c.save(); c.strokeStyle = TH.grade; c.fillStyle = TH.grade; c.lineWidth = 1;
+    const repetir = (sp, off, lim, fn) => { const s2 = sp * z; if (s2 < 5) return; for (let v = ((off % s2) + s2) % s2; v < lim; v += s2) fn(Math.round(v) + 0.5); };
+    const linhaH = (y) => { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); };
+    const linhaV = (x) => { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); };
+    if (f.grade) { repetir(f.grade, k.x, w, linhaV); repetir(f.grade, k.y, h, linhaH); }
+    if (f.pontos) { const s2 = f.pontos * z; if (s2 >= 6) { const r = Math.max(0.8, Math.min(1.8, z * 1.2)); for (let x = ((k.x % s2) + s2) % s2; x < w; x += s2) for (let y = ((k.y % s2) + s2) % s2; y < h; y += s2) c.fillRect(x - r / 2, y - r / 2, r, r); } }
+    if (f.linhas) repetir(f.linhas, k.y, h, linhaH);
+    if (f.margem) { c.strokeStyle = f.margem === 'grade' ? TH.mudo : f.margem; c.globalAlpha = f.margem === 'grade' ? 0.45 : 0.75; c.lineWidth = Math.max(1, 1.5 * z); linhaV(Math.round(k.x + 48 * z) + 0.5); c.globalAlpha = 1; c.lineWidth = 1; c.strokeStyle = TH.grade; }
+    if (f.caixas) { const lado = 14 * z; const x0 = k.x + 20 * z; if (lado >= 5 && x0 + lado > 0 && x0 < w) repetir(f.linhas, k.y, h, (y) => { c.strokeRect(Math.round(x0) + 0.5, Math.round(y - lado - 6 * z) + 0.5, Math.round(lado), Math.round(lado)); }); }
+    if (f.pauta) { const passo = 10 * z; if (passo >= 2.5) repetir(130, k.y - 130 * z, h, (y) => { for (let i = 0; i < 5; i++) linhaH(Math.round(y + i * passo) + 0.5); }); }
+    c.restore();
   }
   const redesenhar = () => { if (!quadro) quadro = requestAnimationFrame(desenhar); };
   function desenhar() {
     quadro = 0; if (!W || !H) return; tema();
-    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H); if (S.grade) pontilhado();
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H); desenharFundo(g, fundoAtual(), cam, W, H);
     const pid = porId(); g.save(); g.setTransform(DPR * cam.z, 0, 0, DPR * cam.z, DPR * cam.x, DPR * cam.y);
     for (const o of objs) objeto(g, o, cam.z, pid, editando && editando.id === o.id);
     if (vivo) objeto(g, vivo, cam.z, pid);
@@ -292,8 +324,21 @@ function montar(corpo) {
     else cam = { ...cam, x: cam.x - e.deltaX, y: cam.y - e.deltaY };
     redesenhar(); salvarSoon();
   }, { passive: false });
-  function alternarGrade() { S.grade = !S.grade; btnGrade.classList.toggle('ligado', S.grade); guardar('lousaPrefs', { grade: S.grade, mini: S.mini }); redesenhar(); }
-  function alternarMini() { S.mini = !S.mini; mini.style.display = S.mini ? 'block' : 'none'; btnMini.classList.toggle('ligado', S.mini); guardar('lousaPrefs', { grade: S.grade, mini: S.mini }); redesenhar(); }
+  const fundoAtual = () => cur?.fundo ?? S.fundoInicial;
+  function escolherFundo(id) { if (!cur) return; if (id !== 'liso') S.ultimoFundo = id; cur.fundo = id; btnGrade.classList.toggle('ligado', id !== 'liso'); pintarFundos(); redesenhar(); salvarSoon(); }
+  const alternarGrade = () => escolherFundo(fundoAtual() === 'liso' ? S.ultimoFundo : 'liso');
+  // galeria de estilos de fundo, com miniaturas desenhadas pelo mesmo código do quadro
+  const fundos = el('div', { class: 'lousa-menu lousa-fundos lousa-painel', role: 'dialog', 'aria-label': 'Estilo do fundo', hidden: true });
+  function pintarFundos() {
+    if (fundos.hidden) return; tema(); const d = window.devicePixelRatio || 1; const atual = fundoAtual();
+    fundos.replaceChildren(el('h3', {}, 'Estilo do fundo'), ...FUNDOS.map(([id, nome]) => {
+      const cv = el('canvas', { width: 72 * d, height: 96 * d }); const c = cv.getContext('2d'); c.scale(d, d); c.fillStyle = TH.papel; c.fillRect(0, 0, 72, 96);
+      desenharFundo(c, id, { x: -4, y: 8, z: 0.5 }, 72, 96);
+      return el('button', { type: 'button', title: nome, 'aria-pressed': String(id === atual), onclick: () => escolherFundo(id) }, cv, el('span', {}, nome));
+    }));
+  }
+  function abrirFundos() { if (!fundos.hidden) { fundos.hidden = true; return; } menu.hidden = true; fundos.hidden = false; pintarFundos(); }
+  function alternarMini() { S.mini = !S.mini; mini.style.display = S.mini ? 'block' : 'none'; btnMini.classList.toggle('ligado', S.mini); guardar('lousaPrefs', { ...ler('lousaPrefs', {}), mini: S.mini }); redesenhar(); }
   function menuZoom() {
     if (!menu.hidden) { menu.hidden = true; return; }
     const itens = [['Ajustar à tela', 'Alt+1', ajustar], ['Zoom na seleção', 'Alt+2', ajustarSel], ['50%', '', () => zoomCentro(0.5 / cam.z)], ['100%', 'Ctrl+0', () => zoomCentro(1 / cam.z)], ['200%', '', () => zoomCentro(2 / cam.z)]];
@@ -321,7 +366,7 @@ function montar(corpo) {
     enviando = true; sujo = false; tema();
     const id = cur.id;
     try {
-      const r = await api(`/api/lousas/${id}`, { metodo: 'PUT', corpo: { versao: cur.versao, titulo: cur.titulo, vista: cam, objs, miniatura: miniatura() } });
+      const r = await api(`/api/lousas/${id}`, { metodo: 'PUT', corpo: { versao: cur.versao, titulo: cur.titulo, fundo: fundoAtual(), vista: cam, objs, miniatura: miniatura() } });
       if (cur?.id === id) { cur.versao = r.versao; falhou = false; if (!sujo) status('ok', `Salvo às ${new Date().toLocaleTimeString('pt-BR')}`); }
       const item = lista.find((l) => l.id === id); if (item) { item.titulo = cur.titulo; item.atualizada = r.atualizada; item.versao = r.versao; item.objetos = objs.length; }
       pintarLista();
@@ -353,7 +398,7 @@ function montar(corpo) {
     if (descartar) { sujo = false; falhou = false; } else if (cur && sujo) { await enviar(); if (sujo) { avisar('Não consegui salvar o quadro atual. Tente de novo em instantes.', 'erro'); return; } }
     try {
       const l = await api(`/api/lousas/${id}`);
-      cur = { id: l.id, titulo: l.titulo, versao: l.versao }; objs = l.objs; cam = l.vista ?? { x: 80, y: 80, z: 1 };
+      cur = { id: l.id, titulo: l.titulo, versao: l.versao, fundo: FUNDOS.some((f) => f[0] === l.fundo) ? l.fundo : S.fundoInicial }; if (cur.fundo !== 'liso') S.ultimoFundo = cur.fundo; btnGrade.classList.toggle('ligado', cur.fundo !== 'liso'); pintarFundos(); objs = l.objs; cam = l.vista ?? { x: 80, y: 80, z: 1 };
       S.sel = []; hist = [JSON.stringify(objs)]; hi = 0; falhou = false; sujo = false; editando = null; editor.hidden = true; vivo = null;
       titulo.value = cur.titulo; titulo.disabled = false; status('ok', 'Salvo'); guardar('lousaAtiva', id);
       if (estreita()) corpo.classList.add('sem-coluna'); // no celular a lista fecha e o quadro aparece
@@ -375,7 +420,7 @@ function montar(corpo) {
     barra.replaceChildren(...FERRAMENTAS.map((f) => (f === '-' ? el('div', { class: 'lousa-sep' }) : el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], 'aria-pressed': 'false', dados: { f: f[0] },
       onclick: () => escolherFerr(f[0] === 'formas' ? S.ultimaForma ?? 'rect' : f[0] === 'linhas' ? S.ultimaLinha ?? 'arrow' : f[0]) }, icone(f[1])))));
     for (const [gav, itens] of [[gavetaFormas, FORMAS], [gavetaLinhas, LINHAS]]) gav.replaceChildren(...itens.map((f) => el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], dados: { f: f[0] }, onclick: () => escolherFerr(f[0]) }, icone(f[1]))));
-    btnGrade.classList.toggle('ligado', S.grade); btnMini.classList.toggle('ligado', S.mini); mini.style.display = S.mini ? 'block' : 'none';
+    btnGrade.classList.toggle('ligado', S.fundoInicial !== 'liso'); btnMini.classList.toggle('ligado', S.mini); mini.style.display = S.mini ? 'block' : 'none';
   }
   function escolherFerr(t) {
     if (editando) fimEdicao();
@@ -424,7 +469,7 @@ function montar(corpo) {
 
   // ---------- edição de texto ----------
   function iniciarEdicao(o) {
-    if (!o || o.lock) return; if (editando) fimEdicao(); editando = o; S.sel = [o.id];
+    if (!o || o.lock || o.t === 'image') return; if (editando) fimEdicao(); editando = o; S.sel = [o.id];
     const chave = o.t === 'frame' ? 'title' : 'text'; const sp = paraTela(o.x, o.y); const z = cam.z;
     editor.hidden = false; editor.value = o[chave] || ''; editor.removeAttribute('style');
     Object.assign(editor.style, { left: `${sp[0]}px`, top: `${sp[1]}px`, width: `${Math.max(60, o.w * z)}px`, height: `${Math.max(24, o.h * z)}px`, fontSize: `${(o.t === 'sticky' ? fsPostit(g, o) : (o.fs || 16)) * z}px`,
@@ -487,7 +532,8 @@ function montar(corpo) {
         else if (!S.sel.includes(o.id)) S.sel = ids;
         arrasto = { tipo: 'mover', w0: w, snap: selObjs().filter((x) => !x.lock).map((x) => [x, structuredClone(x)]), moveu: false }; pintarCtx(); redesenhar(); return;
       }
-      if (!e.shiftKey) S.sel = [];
+      // espaço vazio: arrastar move o quadro, como nas Conversas e na Criação de vídeo; Shift + arrastar seleciona vários
+      if (!e.shiftKey) { S.sel = []; arrasto = { tipo: 'pan', sx: p[0], sy: p[1], cx: cam.x, cy: cam.y }; tela.style.cursor = 'grabbing'; pintarCtx(); redesenhar(); return; }
       arrasto = { tipo: 'marquee', sx: p[0], sy: p[1], cx: p[0], cy: p[1], base: S.sel.slice() }; pintarCtx(); redesenhar(); return;
     }
     if (t === 'pen' || t === 'hl' || t === 'smart') { const st = t === 'hl' ? S.hl : S.pens[S.penIdx]; vivo = { id: uid(), t: 'stroke', tool: t === 'hl' ? 'hl' : 'pen', c: st.c, s: st.s, p: [w] }; arrasto = { tipo: 'desenhar', inteligente: t === 'smart' }; S.sel = []; botoes(); redesenhar(); pintarCtx(); return; }
@@ -505,7 +551,9 @@ function montar(corpo) {
   tela.addEventListener('pointermove', (e) => {
     const p = ptr(e); if (pontos.has(e.pointerId)) pontos.set(e.pointerId, p); const w = paraMundo(p[0], p[1]);
     if (arrasto?.tipo === 'pinca') { const v = [...pontos.values()]; if (v.length >= 2) { cam = pinca(arrasto.cam0, arrasto.a0, arrasto.b0, { x: v[0][0], y: v[0][1] }, { x: v[1][0], y: v[1][1] }, ...ZOOM); redesenhar(); } return; }
+    ultimoPtr = p;
     if (!arrasto) {
+      if (S.ferr === 'select' && cur && !S.espaco) tela.style.cursor = alcaEm(p) !== null || G.escolher(objs, w[0], w[1], tol()) ? 'default' : 'grab'; // a mãozinha avisa que o fundo arrasta
       if (GRUPO_LINHAS.has(S.ferr)) { const h = G.ondePrender(objs, w[0], w[1], tol())?.id ?? null; if (h !== hover) { hover = h; redesenhar(); } } else if (hover) { hover = null; redesenhar(); }
       return;
     }
@@ -524,7 +572,7 @@ function montar(corpo) {
     if (a.tipo === 'redim') {
       const b = a.caixa; const i = a.al; const ox = i === 0 || i === 3 ? b.x + b.w : b.x; const oy = i === 0 || i === 1 ? b.y + b.h : b.y; const hx = i === 0 || i === 3 ? b.x : b.x + b.w; const hy = i === 0 || i === 1 ? b.y : b.y + b.h;
       let sx = Math.max(0.05, (w[0] - ox) / (hx - ox || 1)); let sy = Math.max(0.05, (w[1] - oy) / (hy - oy || 1));
-      if (e.shiftKey || a.snap.some(([o]) => o.t === 'stroke' || o.t === 'line' || o.t === 'sticky')) sx = sy = Math.max(sx, sy);
+      if (e.shiftKey || a.snap.some(([o]) => o.t === 'stroke' || o.t === 'line' || o.t === 'sticky' || o.t === 'image')) sx = sy = Math.max(sx, sy);
       for (const [o, s] of a.snap) Object.assign(o, G.escalado(s, ox, oy, sx, sy, pid)); redesenhar(); return;
     }
     if (a.tipo === 'girar') { const b = a.caixa; const cx = b.x + b.w / 2; const cy = b.y + b.h / 2; let da = Math.atan2(w[1] - cy, w[0] - cx) - a.a0; if (e.shiftKey) da = Math.round(da / (Math.PI / 12)) * (Math.PI / 12); for (const [o, s] of a.snap) Object.assign(o, G.girado(s, cx, cy, da, pid)); redesenhar(); return; }
@@ -567,7 +615,92 @@ function montar(corpo) {
   }
   tela.addEventListener('dblclick', (e) => duploToque(ptr(e)));
   let toqueIni = null; let ultimoToque = null;
-  tela.addEventListener('contextmenu', (e) => e.preventDefault());
+  let ultimoPtr = null; // onde o mouse está sobre o quadro (o Ctrl+V cola ali)
+
+  // ---------- colar da área de transferência (imagem, texto ou objetos copiados de outro quadro) ----------
+  const MARCA = 'cerebro-lousa:'; // o Ctrl+C do quadro grava os objetos como texto com esta marca
+  const PASTA_IMAGENS = 'conteudo/quadros';
+  const pontoDeColar = () => paraMundo(...(ultimoPtr && ultimoPtr[0] >= 0 && ultimoPtr[1] >= 0 && ultimoPtr[0] <= W && ultimoPtr[1] <= H ? ultimoPtr : [W / 2, H / 2]));
+  function colarObjetos(itens, w) { // o centro do que foi copiado cai no ponto w
+    const b = G.uniao(itens, G.porIdDe(itens)); const c = clonar(itens, w[0] - (b.x + b.w / 2), w[1] - (b.y + b.h / 2));
+    objs = objs.concat(c); escolherFerr('select'); S.sel = c.map((q) => q.id); foto(); pintarCtx(); redesenhar();
+  }
+  function colarTexto(texto, w) {
+    const t = texto.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').slice(0, 20000); const fs = S.txt.fs;
+    g.font = `${fs}px system-ui, sans-serif`; const ls = t.split('\n');
+    const o = { id: uid(), t: 'text', x: 0, y: 0, w: Math.max(40, Math.max(...ls.map((l) => g.measureText(l).width)) + 10), h: ls.length * fs * 1.25, r: 0, c: S.txt.c, text: t, fs };
+    o.x = w[0] - o.w / 2; o.y = w[1] - o.h / 2; objs.push(o); escolherFerr('select'); S.sel = [o.id]; foto(); pintarCtx(); redesenhar();
+  }
+  const tamanhoNatural = (blob) => new Promise((fim) => { const u = URL.createObjectURL(blob); const im = new Image(); im.onload = () => { fim([im.naturalWidth, im.naturalHeight]); URL.revokeObjectURL(u); }; im.onerror = () => { fim(null); URL.revokeObjectURL(u); }; im.src = u; });
+  async function colarImagens(blobs, w) {
+    const id = cur.id; const tam = await Promise.all(blobs.map(tamanhoNatural));
+    const carimbo = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
+    const arquivos = blobs.map((b, i) => (b instanceof File && b.name && b.name !== 'image.png' ? b : new File([b], `colado-${carimbo}${blobs.length > 1 ? `-${i + 1}` : ''}.${(b.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/\+.*/, '')}`, { type: b.type })));
+    const caminhos = await enviarArquivos(arquivos, PASTA_IMAGENS);
+    if (cur?.id !== id) return; // trocou de quadro enquanto enviava
+    if (!caminhos.length) { avisar('Não consegui guardar a imagem colada. Tente de novo.', 'erro'); return; }
+    const limite = (Math.min(W, H) * 0.6) / cam.z; const novos = [];
+    caminhos.forEach((src, i) => {
+      const [nw, nh] = tam[i] ?? [400, 300]; const k = Math.min(1, limite / Math.max(nw, nh, 1)); const ww = Math.max(12, nw * k); const hh = Math.max(12, nh * k);
+      const o = { id: uid(), t: 'image', src, x: w[0] - ww / 2 + i * 30, y: w[1] - hh / 2 + i * 30, w: ww, h: hh, r: 0 }; imagemDe(src); novos.push(o);
+    });
+    objs = objs.concat(novos); escolherFerr('select'); S.sel = novos.map((o) => o.id); foto(); pintarCtx(); redesenhar();
+  }
+  // decide o que colar: objetos do próprio quadro, imagem, texto; sem nada no sistema, usa a última cópia interna
+  function colarConteudo({ imagens: imgs = [], texto = '' }, w) {
+    if (!cur) return;
+    if (texto.startsWith(MARCA)) { try { const itens = JSON.parse(texto.slice(MARCA.length)); if (Array.isArray(itens) && itens.length) { colarObjetos(itens, w); return; } } catch { /* não era do quadro: cola como texto */ } }
+    if (imgs.length) { colarImagens(imgs, w); return; }
+    if (texto.trim()) { colarTexto(texto, w); return; }
+    if (clip.length) { colarObjetos(clip, w); return; }
+    avisar('Não há imagem nem texto para colar.');
+  }
+  const ativa = (e) => !corpo.hidden && document.body.dataset.guia === 'lousa' && !noCampo(e) && modalExp.hidden && modalAtalhos.hidden && !!cur;
+  function aoCopiar(e) {
+    if (!ativa(e) || !S.sel.length) return;
+    copiarSel(); e.preventDefault(); e.clipboardData.setData('text/plain', MARCA + JSON.stringify(clip));
+    if (e.type === 'cut') excluirSel();
+  }
+  function aoColar(e) {
+    if (!ativa(e)) return;
+    e.preventDefault(); const d = e.clipboardData; if (!d) return;
+    const imgs = [...d.files].filter((f) => f.type.startsWith('image/'));
+    if (!imgs.length) for (const it of d.items) if (it.kind === 'file' && it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) imgs.push(f); }
+    colarConteudo({ imagens: imgs, texto: d.getData('text/plain') }, pontoDeColar());
+  }
+  async function colarDaArea(w) { // pelo menu do botão direito: lê a área de transferência pela API do navegador
+    let imgs = []; let texto = '';
+    try {
+      if (!navigator.clipboard?.read) throw new Error('sem read');
+      for (const it of await navigator.clipboard.read()) {
+        const ti = it.types.find((t) => t.startsWith('image/'));
+        if (ti) imgs.push(await it.getType(ti)); else if (it.types.includes('text/plain')) texto = await (await it.getType('text/plain')).text();
+      }
+    } catch {
+      try { texto = await navigator.clipboard.readText(); } catch { avisar('O navegador não deixou ler a área de transferência. Use Ctrl+V.', 'erro'); return; }
+    }
+    colarConteudo({ imagens: imgs, texto }, w);
+  }
+  document.addEventListener('copy', aoCopiar); document.addEventListener('cut', aoCopiar); document.addEventListener('paste', aoColar);
+
+  // ---------- menu do botão direito ----------
+  const menuDir = el('div', { class: 'lousa-menu lousa-menu-dir lousa-painel', role: 'menu', hidden: true });
+  palco.append(menuDir, fundos);
+  const fecharMenuDir = () => { menuDir.hidden = true; };
+  tela.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); if (!cur) return;
+    if (editando) fimEdicao();
+    const p = ptr(e); const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
+    if (o && !S.sel.includes(o.id)) { escolherFerr('select'); S.sel = G.idsDoGrupo(objs, o); pintarCtx(); redesenhar(); }
+    const tem = S.sel.length > 0; const editavel = selObjs().some((x) => !x.lock);
+    const itens = [['Colar', 'Ctrl+V', () => colarDaArea(w), true],
+      ['Copiar', 'Ctrl+C', () => { copiarSel(); navigator.clipboard?.writeText(MARCA + JSON.stringify(clip)).catch(() => {}); }, tem],
+      ['Recortar', 'Ctrl+X', () => { copiarSel(); navigator.clipboard?.writeText(MARCA + JSON.stringify(clip)).catch(() => {}); excluirSel(); }, tem && editavel],
+      ['Duplicar', 'Ctrl+D', duplicarSel, tem && editavel], ['Excluir', 'Del', excluirSel, tem && editavel], ['Selecionar tudo', 'Ctrl+A', selecionarTudo, !tem && objs.length > 0]];
+    menuDir.replaceChildren(...itens.filter((i) => i[3]).map(([nome, k, fn]) => el('button', { type: 'button', role: 'menuitem', onclick: () => { fecharMenuDir(); fn(); } }, el('span', {}, nome), el('kbd', {}, k))));
+    menuDir.hidden = false;
+    menuDir.style.left = `${Math.max(6, Math.min(p[0], W - menuDir.offsetWidth - 6))}px`; menuDir.style.top = `${Math.max(6, Math.min(p[1], H - menuDir.offsetHeight - 6))}px`;
+  });
 
   // ---------- barra contextual ----------
   function fecharPop() { pop.hidden = true; }
@@ -591,7 +724,7 @@ function montar(corpo) {
       const tx = l.filter((o) => o.fs);
       if (tx.length) { const alt = (d) => { for (const o of tx) { o.fs = Math.max(8, Math.min(120, o.fs + d)); if (o.t === 'text') o.h = o.fs * 1.25 * G.linhasDoTexto(o); } foto(); redesenhar(); }; f.push(bt('lousa-bt', 'Letra menor', 'menos', () => alt(-2)), bt('lousa-bt', 'Letra maior', 'mais', () => alt(2))); }
       if (l.length === 1 && l[0].t === 'line') f.push(bt('lousa-bt', l[0].k === 'arrow' ? 'Trocar por linha' : 'Trocar por seta', l[0].k === 'arrow' ? 'linha' : 'setaDiag', () => { l[0].k = l[0].k === 'arrow' ? 'line' : 'arrow'; foto(); pintarCtx(); redesenhar(); }));
-      if (l.length === 1 && G.ehCaixa(l[0])) f.push(bt('lousa-bt', 'Editar texto (Enter)', 'texto', () => iniciarEdicao(l[0])));
+      if (l.length === 1 && G.ehCaixa(l[0]) && l[0].t !== 'image') f.push(bt('lousa-bt', 'Editar texto (Enter)', 'texto', () => iniciarEdicao(l[0])));
       f.push(el('span', { class: 'lousa-sep-v' }), bt('lousa-bt', 'Duplicar (Ctrl+D)', 'copiar', duplicarSel), bt('lousa-bt', 'Trazer para a frente (PgUp)', 'frente', () => camada(1)), bt('lousa-bt', 'Enviar para trás (PgDn)', 'tras', () => camada(-1)));
     }
     if (l.length > 1 || l[0].g) { const agrupado = l.every((o) => o.g); f.push(bt('lousa-bt', agrupado ? 'Desagrupar (Ctrl+Shift+G)' : 'Agrupar (Ctrl+G)', 'agrupar', alternarGrupo)); }
@@ -612,23 +745,22 @@ function montar(corpo) {
     for (const o of objs) if (o.t === 'line') { const [p1, p2] = G.pontasDaLinha(o, pid); if (o.a && ids.includes(o.a.id)) { o.x1 = p1[0]; o.y1 = p1[1]; o.a = null; } if (o.b && ids.includes(o.b.id)) { o.x2 = p2[0]; o.y2 = p2[1]; o.b = null; } }
     objs = objs.filter((o) => !ids.includes(o.id)); S.sel = []; foto(); pintarCtx(); redesenhar();
   }
-  function clonar(itens, d) {
+  function clonar(itens, dx, dy = dx) {
     const mapa = new Map(); const grupos = new Map();
     const c = itens.map((o) => { const q = structuredClone(o); q.id = uid(); mapa.set(o.id, q.id); if (q.g) { if (!grupos.has(q.g)) grupos.set(q.g, uid()); q.g = grupos.get(q.g); } return q; });
     const pid = G.porIdDe(itens);
     c.forEach((q, i) => {
-      if (q.t === 'stroke') q.p = q.p.map((p) => [p[0] + d, p[1] + d]);
+      if (q.t === 'stroke') q.p = q.p.map((p) => [p[0] + dx, p[1] + dy]);
       else if (q.t === 'line') {
         const [p1, p2] = G.pontasDaLinha(itens[i], pid);
         q.a = q.a && mapa.has(q.a.id) ? { id: mapa.get(q.a.id) } : null; q.b = q.b && mapa.has(q.b.id) ? { id: mapa.get(q.b.id) } : null;
-        if (!q.a) { q.x1 = p1[0] + d; q.y1 = p1[1] + d; } if (!q.b) { q.x2 = p2[0] + d; q.y2 = p2[1] + d; }
-      } else { q.x += d; q.y += d; }
+        if (!q.a) { q.x1 = p1[0] + dx; q.y1 = p1[1] + dy; } if (!q.b) { q.x2 = p2[0] + dx; q.y2 = p2[1] + dy; }
+      } else { q.x += dx; q.y += dy; }
     });
     return c;
   }
   function duplicarSel() { const l = selObjs().filter((o) => !o.lock); if (!l.length) return; const c = clonar(l, 24); objs = objs.concat(c); S.sel = c.map((q) => q.id); foto(); pintarCtx(); redesenhar(); }
-  const copiarSel = () => { const l = selObjs(); if (l.length) { clip = l.map((o) => structuredClone(o)); clipN = 0; } };
-  function colar() { if (!clip.length) return; clipN += 1; const c = clonar(clip, 24 * clipN); objs = objs.concat(c); S.sel = c.map((q) => q.id); foto(); pintarCtx(); redesenhar(); }
+  const copiarSel = () => { const l = selObjs(); if (l.length) clip = l.map((o) => structuredClone(o)); };
   function camada(dir) { const l = selObjs(); if (!l.length) return; const ids = l.map((o) => o.id); const resto = objs.filter((o) => !ids.includes(o.id)); objs = dir > 0 ? resto.concat(l) : l.concat(resto); foto(); redesenhar(); }
   function alternarTrava() { const l = selObjs(); const v = !l.every((o) => o.lock); for (const o of l) o.lock = v; foto(); pintarCtx(); redesenhar(); }
   function alternarGrupo() { const l = selObjs(); const agrupado = l.every((o) => o.g); const id = uid(); for (const o of l) { if (agrupado) delete o.g; else o.g = id; } foto(); pintarCtx(); }
@@ -647,9 +779,7 @@ function montar(corpo) {
     if (mod && K === 'z') { pare(); if (e.shiftKey) refazer(); else desfazer(); return; }
     if (mod && K === 'y') { pare(); refazer(); return; }
     if (mod && K === 'a') { pare(); selecionarTudo(); return; }
-    if (mod && K === 'c') { copiarSel(); return; }
-    if (mod && K === 'x') { copiarSel(); excluirSel(); return; }
-    if (mod && K === 'v') { pare(); colar(); return; }
+    if (mod && (K === 'c' || K === 'x' || K === 'v')) return; // copiar, recortar e colar vêm pelos eventos copy, cut e paste (aceitam imagem e texto de fora)
     if (mod && K === 'd') { pare(); duplicarSel(); return; }
     if (mod && K === 'g') { pare(); const l = selObjs(); if (e.shiftKey) { for (const o of l) delete o.g; foto(); pintarCtx(); } else if (l.length > 1) { const id = uid(); for (const o of l) o.g = id; foto(); pintarCtx(); } return; }
     if (mod && e.shiftKey && K === 'l') { pare(); alternarTrava(); return; }
@@ -660,7 +790,7 @@ function montar(corpo) {
     if (e.altKey && k === '2') { pare(); ajustarSel(); return; }
     if (mod || e.altKey) return;
     if (k === 'Backspace' || k === 'Delete') { pare(); excluirSel(); return; }
-    if (k === 'Escape') { if (S.sel.length) { S.sel = []; pintarCtx(); redesenhar(); } escolherFerr('select'); fecharPop(); return; }
+    if (k === 'Escape') { fecharMenuDir(); fundos.hidden = true; if (S.sel.length) { S.sel = []; pintarCtx(); redesenhar(); } escolherFerr('select'); fecharPop(); return; }
     if (k === 'Enter') { const u = selObjs(); if (u.length === 1 && G.ehCaixa(u[0])) { pare(); iniciarEdicao(u[0]); } return; }
     if (k === 'PageUp') { pare(); camada(1); return; }
     if (k === 'PageDown') { pare(); camada(-1); return; }
@@ -680,8 +810,8 @@ function montar(corpo) {
   // ---------- atalhos e exportar ----------
   function abrirAtalhos() {
     const D = [['Ferramentas', [['V / H', 'Selecionar / Mão'], ['P', 'Caneta'], ['Shift+P', 'Marca-texto'], ['D', 'Desenho inteligente'], ['E', 'Borracha'], ['Shift+E', 'Borracha de precisão'], ['Q', 'Laço'], ['N', 'Post-it'], ['T', 'Texto'], ['R / O', 'Retângulo / Oval'], ['L', 'Seta'], ['F', 'Moldura']]],
-      ['Editar', [['Ctrl+Z', 'Desfazer'], ['Ctrl+Y', 'Refazer'], ['Ctrl+C / V / X', 'Copiar, colar, recortar'], ['Ctrl+D', 'Duplicar'], ['Ctrl+A', 'Selecionar tudo'], ['Backspace', 'Excluir'], ['Enter', 'Editar texto'], ['Ctrl+G', 'Agrupar'], ['Ctrl+Shift+G', 'Desagrupar'], ['Ctrl+Shift+L', 'Bloquear'], ['PgUp / PgDn', 'Frente / trás'], ['Setas', 'Mover (Shift = 10x)']]],
-      ['Navegação', [['Espaço + arrastar', 'Mover o quadro'], ['Ctrl + roda', 'Zoom'], ['+ / −', 'Zoom'], ['Ctrl+0', '100%'], ['Alt+1', 'Ajustar à tela'], ['Alt+2', 'Zoom na seleção'], ['G', 'Grade'], ['M', 'Minimapa'], ['?', 'Esta lista'], ['Esc', 'Soltar seleção']]]];
+      ['Editar', [['Ctrl+Z', 'Desfazer'], ['Ctrl+Y', 'Refazer'], ['Ctrl+C / V / X', 'Copiar, colar (imagem e texto de fora também), recortar'], ['Botão direito', 'Menu com Colar'], ['Ctrl+D', 'Duplicar'], ['Ctrl+A', 'Selecionar tudo'], ['Backspace', 'Excluir'], ['Enter', 'Editar texto'], ['Ctrl+G', 'Agrupar'], ['Ctrl+Shift+G', 'Desagrupar'], ['Ctrl+Shift+L', 'Bloquear'], ['PgUp / PgDn', 'Frente / trás'], ['Setas', 'Mover (Shift = 10x)']]],
+      ['Navegação', [['Arrastar o fundo', 'Mover o quadro'], ['Roda do mouse', 'Mover o quadro'], ['Espaço + arrastar', 'Mover o quadro'], ['Shift + arrastar', 'Selecionar vários'], ['Ctrl + roda', 'Zoom'], ['+ / −', 'Zoom'], ['Ctrl+0', '100%'], ['Alt+1', 'Ajustar à tela'], ['Alt+2', 'Zoom na seleção'], ['G', 'Fundo liga e desliga'], ['M', 'Minimapa'], ['?', 'Esta lista'], ['Esc', 'Soltar seleção']]]];
     corpoAtalhos.replaceChildren(...D.flatMap(([titulo2, itens]) => [el('h3', {}, titulo2), ...itens.map(([t, d]) => el('div', {}, el('span', {}, d), el('kbd', {}, t)))]));
     modalAtalhos.hidden = false;
   }
@@ -703,9 +833,9 @@ function montar(corpo) {
     c.toBlob(async (b) => { try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); expInfo.textContent = 'Imagem copiada. Cole onde quiser.'; } catch { expInfo.textContent = 'O navegador não deixou copiar. Use "Baixar PNG".'; } });
   }
 
-  const aoPressionar = (e) => { if (!e.target.closest?.('.lousa-pop') && !e.target.closest?.('.lousa-ctx')) fecharPop(); if (!e.target.closest?.('.lousa-menu') && !e.target.closest?.('.lousa-pct')) menu.hidden = true; };
+  const aoPressionar = (e) => { if (!e.target.closest?.('.lousa-pop') && !e.target.closest?.('.lousa-ctx')) fecharPop(); if (!e.target.closest?.('.lousa-menu') && !e.target.closest?.('.lousa-pct')) menu.hidden = true; if (!e.target.closest?.('.lousa-fundos') && !btnGrade.contains(e.target)) fundos.hidden = true; if (!e.target.closest?.('.lousa-menu-dir')) fecharMenuDir(); };
   document.addEventListener('pointerdown', aoPressionar, true);
-  const aoMudarTema = ouvir('tema-mudou', () => redesenhar());
+  const aoMudarTema = ouvir('tema-mudou', () => { redesenhar(); pintarFundos(); });
   const mq = matchMedia('(prefers-color-scheme: dark)'); const aoMudarSistema = () => redesenhar(); mq.addEventListener('change', aoMudarSistema);
 
   // ---------- início ----------
@@ -720,7 +850,7 @@ function montar(corpo) {
     mostrar: () => { medir(); redesenhar(); },
     esconder: () => { enviar(); },
     podeFechar: () => { if (sujo && falhou) { avisar('Há alterações que ainda não foram salvas no servidor. Espere voltar a conexão.', 'erro'); return false; } enviar(); return true; },
-    limpar: () => { enviar(); observador.disconnect(); document.removeEventListener('keydown', tecla); document.removeEventListener('keyup', soltarTecla); document.removeEventListener('pointerdown', aoPressionar, true); mq.removeEventListener('change', aoMudarSistema); aoMudarTema(); clearTimeout(timerSalvar); clearTimeout(timerRetry); },
+    limpar: () => { enviar(); observador.disconnect(); document.removeEventListener('keydown', tecla); document.removeEventListener('keyup', soltarTecla); document.removeEventListener('copy', aoCopiar); document.removeEventListener('cut', aoCopiar); document.removeEventListener('paste', aoColar); document.removeEventListener('pointerdown', aoPressionar, true); mq.removeEventListener('change', aoMudarSistema); aoMudarTema(); clearTimeout(timerSalvar); clearTimeout(timerRetry); },
   };
 }
 
