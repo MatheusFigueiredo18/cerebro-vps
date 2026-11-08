@@ -191,7 +191,7 @@ export function criarConversas({ cfg, spawnTerminal, agora = Date.now, log = () 
       for (const d of itens) {
         if (d.name.startsWith('.')) continue;
         const abs = path.join(dir, d.name);
-        if (d.isDirectory()) andar(abs);
+        if (d.isDirectory()) { if (abs !== path.join(vault, 'conteudo', 'video')) andar(abs); } // vídeos gerados pertencem à Criação de vídeo, não a uma Conversa
         else if (tipoMidia(d.name) && !enviadosPeloDono.has(abs)) {
           try { achados.set(abs, fs.statSync(abs).mtimeMs); } catch { /* sumiu */ }
         }

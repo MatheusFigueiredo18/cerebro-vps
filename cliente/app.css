@@ -587,6 +587,20 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-ref.video-saida { padding: 6px; }
 .video-saida-quadro { display: grid; place-content: center; justify-items: center; gap: 10px; min-height: 0; padding: 14px; text-align: center; font-size: 12.5px; color: var(--texto-2); border-radius: 8px; border: 1px dashed var(--linha); background: linear-gradient(160deg, color-mix(in srgb, var(--t-video) 16%, var(--hover)), var(--hover)); }
 .video-saida-quadro svg { width: 34px; height: 34px; color: var(--t-video); }
+.video-saida > video { width: 100%; height: 100%; min-height: 0; object-fit: contain; border-radius: 8px; background: #000; }
+.video-saida-acoes { display: flex; gap: 6px; align-items: center; }
+.video-versao { flex: 1; min-width: 0; height: 28px; border-radius: 8px; border: 1px solid var(--linha); background: var(--card); color: inherit; font: inherit; font-size: 12px; }
+.video-ger-status { line-height: 1.35; }
+.video-ger-status.gerando { color: var(--acento); }
+.video-ger-status.sem-video { color: #E2553B; }
+.video-claude { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+.video-chat { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; min-height: 0; font-size: 12.5px; user-select: text; -webkit-user-select: text; }
+.video-chat-vazio { color: var(--texto-2); }
+.video-msg { max-width: 88%; padding: 6px 9px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--hover); }
+.video-msg.voce { align-self: flex-end; background: color-mix(in srgb, var(--acento) 18%, var(--card)); }
+.video-msg.pensando { color: var(--texto-2); font-style: italic; }
+.video-chat-form { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 6px; padding: 6px; border-top: 1px solid var(--linha); }
+.video-chat-entrada { height: auto; padding: 6px; }
 .video-porta { position: absolute; top: 14px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--card); background: var(--texto-3); cursor: crosshair; z-index: 3; }
 .video-porta.e { left: -8px; }
 .video-porta.s { right: -8px; }

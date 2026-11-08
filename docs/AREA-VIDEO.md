@@ -50,6 +50,14 @@ Hoje o espaço das Conversas fica no `localStorage` do navegador. Na área de v�
 - **Magnific:** exige login do MCP **na VPS** (o do PC não vale lá) e créditos.
 - Fonte de áudio (música e efeitos sonoros) ainda sem definição: banco livre de direitos ou gerado.
 
+## Fase 3 construída (2026-11-07)
+Decisões do Matheus: o botão chama **"Gerar"**; Conteúdo principal e Referência ligam direto no **Gerar vídeo**; nó opcional **Claude** (caixa de conversa) ligado no Gerar, para acompanhar e corrigir; depois de gerar, **Baixar**, sem encerrar a sessão do Claude. Licença do Remotion: construir agora, checar antes de usar em vídeo de cliente.
+- Servidor: `servidor/geracao.js`, rotas `POST /api/video/:id/gerar` e `GET /api/video/:id/geracao`. Claude sem tela (mesmo `rodarSemTela` do WhatsApp), **sessão do Claude = id da sessão de vídeo** (`--session-id` na primeira vez, `--resume` depois). Um vídeo por vez (409 se outro estiver gerando), limite de 45 min.
+- Projeto Remotion compartilhado em `<dados>/remotion` (fora do cérebro); saída em `conteudo/video/<id>/v<N>.mp4`, nunca sobrescreve. A conversa fica em `<dados>/video-geracao/<id>.json`.
+- `conteudo/video/` não entra na varredura de mídias das Conversas (o vídeo gerado não vira card de terminal).
+- Tela: nó Claude com histórico e Enter para enviar; Gerar com status (gerando há m:ss, pronto, sem vídeo novo) e Baixar; quando fica pronto, cria o nó Vídeo ligado (player, versões, Baixar).
+- Testes: `teste/geracao.test.js`. Falta: rodar de verdade na VPS (Remotion, Chromium e npm instalados pelo próprio Claude no primeiro job).
+
 ## Decisões para o Matheus
 1. Aprovar as fases e começar pela 1?
 2. O gerador roda Claude sem tela (automático) ou abre um terminal de conversa com o pedido pronto (você acompanha e ajusta)?

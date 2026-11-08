@@ -19,6 +19,7 @@ import { criarPagina, criarPasta, lerPagina, salvarPagina, buscar } from './pagi
 import { criarBanco, lerBanco, criarLinha, salvarProp, salvarEsquema } from './bancos.js';
 import { criarLousas } from './lousas.js';
 import { criarVideos } from './videos.js';
+import { criarGeracao } from './geracao.js';
 
 const CLIENTE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'cliente');
 const MODULOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'node_modules');
@@ -181,6 +182,9 @@ export function criarServidor(cfg, deps = {}) {
   app.get('/api/video/:id', (req, res) => rotaVault(() => videos.ler(req.params.id))(req, res));
   app.put('/api/video/:id', express.json({ limit: '10mb' }), (req, res) => rotaVault((b) => videos.salvar(req.params.id, b))(req, res));
   app.post('/api/video/:id/arquivar', (req, res) => rotaVault(() => videos.arquivar(req.params.id))(req, res));
+  const geracao = criarGeracao({ cfg, videos, registroExiste: conversas.registroClaudeExiste, agora, log, ...(deps.rodarGerador ? { rodar: deps.rodarGerador } : {}) });
+  app.get('/api/video/:id/geracao', (req, res) => rotaVault(() => geracao.estado(req.params.id))(req, res));
+  app.post('/api/video/:id/gerar', (req, res) => rotaVault((b) => geracao.gerar(req.params.id, b))(req, res));
 
   // ---------- conversas ----------
   app.post('/api/conversas', (req, res) => {

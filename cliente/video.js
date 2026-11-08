@@ -1,7 +1,8 @@
 // Função Criação de vídeo: espaço novo, ao lado dos outros.
 // Barra da direita = sessões (cada vídeo é uma sessão com o próprio canvas). No canvas: mover, zoom, nós que se criam ao clicar,
 // arquivos de Conteúdos (vídeo ou imagem) que viram Referência ao soltar, e ligações por tipo entre os nós.
-// Ainda não gera nada: o gerador (Remotion) entra na fase 3 (docs/AREA-VIDEO.md). Cada sessão fica no servidor (/api/video, um JSON por sessão); o navegador só lembra qual estava aberta.
+// "Gerar vídeo" (fase 3, docs/AREA-VIDEO.md): o servidor roda um Claude sem tela que faz o vídeo no Remotion; o nó Claude continua a mesma sessão para ajustes.
+// Cada sessão fica no servidor (/api/video, um JSON por sessão; geração em /api/video/:id/gerar); o navegador só lembra qual estava aberta.
 import { el, icone, botaoIcone, botaoConfirmar, ler, guardar, avisar, api } from './comum.js';
 import { abrirJanela } from './conteudos.js';
 import { nomeBase, tipoArquivo } from './formatos.js';
@@ -24,7 +25,8 @@ const TIPOS = {
   referencia: { nome: 'Referência', sub: 'vídeo ou imagem', icone: 'imagem', w: 220, h: 230, entradas: [], saida: 'midia', faz: 'Arraste um vídeo ou imagem de Conteúdos para o canvas' },
   lista: { nome: 'Lista', sub: 'lista', icone: 'conteudos', w: 190, h: 120, entradas: ['midia'], saida: 'lista', faz: 'Agrupa várias referências' },
   prompt: { nome: 'Prompt', sub: 'texto', icone: 'doc', w: 280, h: 190, entradas: [], saida: 'texto', faz: 'Texto livre: estilo, motion, efeitos, música, legenda' },
-  remotion: { nome: 'Gerador Remotion', sub: 'vídeo', icone: 'filme', w: 260, h: 220, entradas: ['lista', 'texto', 'midia'], saida: 'video', faz: 'Monta e renderiza o vídeo na VPS' },
+  claude: { nome: 'Claude', sub: 'acompanhar e corrigir', icone: 'terminal', w: 320, h: 380, entradas: [], saida: 'texto', faz: 'Converse com o Claude que faz o vídeo: peça ajustes sem encerrar a sessão' },
+  remotion: { nome: 'Gerar vídeo', sub: 'Remotion', icone: 'filme', w: 260, h: 230, entradas: ['lista', 'texto', 'midia'], saida: 'video', faz: 'O Claude monta o vídeo no Remotion e renderiza na VPS' },
   magnific: { nome: 'Gerador Magnific', sub: 'opcional', icone: 'brilho', w: 260, h: 170, entradas: ['texto', 'midia'], saida: 'video', faz: 'Clipe ou imagem por IA; exige plano pago e chave da API', opcional: true },
   saida: { nome: 'Vídeo', sub: 'saída', icone: 'video', w: 220, h: 330, entradas: ['video'], saida: null, faz: 'Preview, versões e download' },
 };
@@ -42,6 +44,10 @@ function montar(corpo) {
   let carregando = false; let sujo = false; let enviando = false; let falhou = false; let timerEnvio = 0;
   let cards = new Map(); // id do nó -> { el, no }
   let topoZ = 1;
+  // geração da sessão aberta (servidor): estado, conversa com o Claude e vídeos prontos (o mais novo primeiro)
+  const GER_VAZIA = { estado: 'parado', chat: [], videos: [] };
+  let ger = GER_VAZIA; let timerGer = 0;
+  const rascunhos = new Map(); // id do nó Claude -> texto ainda não enviado
 
   corpo.classList.add('video-espaco');
   corpo.classList.toggle('sem-coluna', ler('videoColunaRecolhida', false) === true);
@@ -161,7 +167,7 @@ function montar(corpo) {
   async function abrir(id, nova = false) {
     if (nova) { // sessão nova: troca na hora (quem chamou já usa o canvas), e o que estava aberto segue sendo salvo
       if (ativa && sujo) enviarGrafo();
-      ativa = id; carregando = false; sujo = false;
+      ativa = id; carregando = false; sujo = false; ger = GER_VAZIA; clearTimeout(timerGer);
       salvarSessoes(); pintarLista(); carregarGrafo(null);
       return;
     }
@@ -170,6 +176,7 @@ function montar(corpo) {
     salvarSessoes();
     pintarLista();
     carregando = true;
+    ger = GER_VAZIA; clearTimeout(timerGer);
     carregarGrafo(null);
     try {
       const r = await api(`/api/video/${id}`);
@@ -177,6 +184,7 @@ function montar(corpo) {
       versoes.set(id, r.versao);
       carregando = false;
       carregarGrafo(r.grafo);
+      carregarGeracao(id);
     } catch (e) { avisar(e.message, 'erro'); } finally { if (ativa === id) carregando = false; }
   }
   // "Remover" arquiva no servidor (o arquivo fica guardado): some da lista, sem apagar nada
@@ -408,16 +416,121 @@ function montar(corpo) {
       const n = grafo.links.filter((l) => l.b === no.id).length;
       return el('div', { class: 'video-info' }, el('b', {}, `${n} item${n === 1 ? '' : 's'}`), el('small', {}, 'Ligue referências na bolinha da esquerda.'));
     }
-    if (no.tipo === 'remotion' || no.tipo === 'magnific') {
-      const t = TIPOS[no.tipo];
-      return el('div', { class: 'video-info' }, el('small', {}, t.faz),
-        el('button', { type: 'button', class: 'bt primario pequeno', disabled: true, title: 'Entra na fase 3' }, icone('play'), 'Rodar (em breve)'),
-        t.opcional ? el('small', {}, 'Desligado: exige plano pago da Magnific e chave da API.') : el('small', {}, 'Liga lista, prompt e referências aqui.'));
+    if (no.tipo === 'magnific') {
+      return el('div', { class: 'video-info' }, el('small', {}, TIPOS.magnific.faz),
+        el('button', { type: 'button', class: 'bt primario pequeno', disabled: true }, icone('play'), 'Gerar (desligado)'),
+        el('small', {}, 'Desligado: exige plano pago da Magnific e chave da API.'));
     }
-    // Mesma estrutura da Referência (quadro que preenche + legenda), para os dois cards combinarem
-    return el('div', { class: 'video-ref video-saida' },
-      el('div', { class: 'video-saida-quadro' }, icone('filme'), el('small', {}, 'O vídeo pronto aparece aqui.')),
-      el('small', {}, 'Aguardando geração'));
+    const gerando = ger.estado === 'gerando';
+    const ultimo = ger.videos[0];
+    if (no.tipo === 'remotion') {
+      return el('div', { class: 'video-info' }, el('small', {}, 'Ligue aqui o Conteúdo principal, Referências, Prompt ou o Claude.'),
+        el('button', { type: 'button', class: 'bt primario', disabled: gerando, onclick: () => gerar(no) }, icone('play'), gerando ? 'Gerando…' : 'Gerar'),
+        el('small', { class: `video-ger-status ${ger.estado}`, role: 'status' }, statusGeracao()),
+        ultimo ? el('a', { class: 'bt pequeno', href: urlArquivo(ultimo.caminho, true), download: '' }, icone('baixar'), 'Baixar vídeo') : null);
+    }
+    if (no.tipo === 'claude') return corpoClaude(no, gerando);
+    // Vídeo: o mais novo da sessão, com troca de versão e download; antes de gerar, o quadro vazio de sempre
+    if (!ultimo) {
+      return el('div', { class: 'video-ref video-saida' },
+        el('div', { class: 'video-saida-quadro' }, icone('filme'), el('small', {}, gerando ? 'Gerando o vídeo…' : 'O vídeo pronto aparece aqui.')),
+        el('small', {}, gerando ? 'O Claude está trabalhando' : 'Aguardando geração'));
+    }
+    const player = el('video', { src: urlArquivo(ultimo.caminho), controls: true, playsInline: true, preload: 'metadata' });
+    const baixar = el('a', { class: 'bt pequeno', href: urlArquivo(ultimo.caminho, true), download: '' }, icone('baixar'), 'Baixar');
+    const versao = el('select', { class: 'video-versao', 'aria-label': 'Versão do vídeo', onchange: () => { player.src = urlArquivo(versao.value); baixar.href = urlArquivo(versao.value, true); } },
+      ger.videos.map((v) => el('option', { value: v.caminho }, nomeBase(v.caminho))));
+    versao.addEventListener('pointerdown', (e) => e.stopPropagation());
+    return el('div', { class: 'video-ref video-saida' }, player, el('div', { class: 'video-saida-acoes' }, versao, baixar));
+  }
+
+  function statusGeracao() {
+    const min = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+    if (ger.estado === 'gerando') return `Gerando há ${min(Date.now() - ger.inicio)}. Pode levar vários minutos.`;
+    if (ger.estado === 'pronto') return `Pronto em ${min(ger.fim - ger.inicio)}.`;
+    if (ger.estado === 'sem-video') return 'Terminou sem vídeo novo: veja a resposta no nó Claude.';
+    return ger.videos.length ? `${ger.videos.length} versão(ões) nesta sessão.` : 'Nenhum vídeo gerado ainda.';
+  }
+
+  function corpoClaude(no, gerando) {
+    const log = el('div', { class: 'video-chat', role: 'log', 'aria-label': 'Conversa com o Claude' },
+      ger.chat.length ? ger.chat.map((m) => el('div', { class: `video-msg ${m.papel}` }, m.texto)) : el('small', { class: 'video-chat-vazio' }, 'Ligue o Claude no Gerar vídeo e peça ajustes aqui. A sessão continua aberta entre um pedido e outro.'),
+      gerando ? el('div', { class: 'video-msg claude pensando' }, 'Trabalhando no vídeo…') : null);
+    const area = el('textarea', { class: 'video-prompt video-chat-entrada', rows: 3, placeholder: 'Ex.: deixa a legenda maior e corta os 2 primeiros segundos', 'aria-label': 'Pedido para o Claude' });
+    area.value = rascunhos.get(no.id) ?? '';
+    const enviar = () => {
+      const t = area.value.trim();
+      if (!t || ger.estado === 'gerando') return;
+      const alvo = grafo.links.map((l) => l.a === no.id && grafo.nos.find((n) => n.id === l.b && n.tipo === 'remotion')).find(Boolean);
+      if (!alvo) { avisar('Ligue o Claude no Gerar vídeo para mandar o pedido.'); return; }
+      rascunhos.delete(no.id);
+      gerar(alvo, t);
+    };
+    area.addEventListener('input', () => rascunhos.set(no.id, area.value));
+    area.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } });
+    area.addEventListener('pointerdown', (e) => e.stopPropagation());
+    setTimeout(() => { log.scrollTop = log.scrollHeight; }, 0);
+    return el('div', { class: 'video-claude' }, log,
+      el('div', { class: 'video-chat-form' }, area, el('button', { type: 'button', class: 'bt primario pequeno', disabled: gerando, onclick: enviar }, icone('enviar'), 'Enviar')));
+  }
+
+  // ---------- geração (Claude + Remotion no servidor) ----------
+  // o que está ligado no Gerar vídeo: principal, referências (também as de dentro de uma Lista) e prompts
+  function entradasDe(g) {
+    const fontes = (id) => grafo.links.filter((l) => l.b === id).map((l) => grafo.nos.find((n) => n.id === l.a)).filter(Boolean);
+    const r = { principal: null, referencias: [], prompts: [] };
+    for (const n of fontes(g.id)) {
+      if (n.tipo === 'principal' && !r.principal) r.principal = n.dados.caminho;
+      else if (n.tipo === 'principal' || n.tipo === 'referencia') r.referencias.push(n.dados.caminho);
+      else if (n.tipo === 'lista') r.referencias.push(...fontes(n.id).map((m) => m.dados?.caminho).filter(Boolean));
+      else if (n.tipo === 'prompt' && n.dados.texto?.trim()) r.prompts.push(n.dados.texto);
+    }
+    return r;
+  }
+  async function gerar(g, pedido = '') {
+    const id = ativa;
+    if (!id) return;
+    await enviarGrafo();
+    await criadas.get(id);
+    try {
+      const r = await api(`/api/video/${id}/gerar`, { metodo: 'POST', corpo: { ...entradasDe(g), pedido } });
+      if (ativa === id) mudarGeracao(r);
+    } catch (e) { avisar(e.message, 'erro'); }
+  }
+  async function carregarGeracao(id) {
+    clearTimeout(timerGer);
+    try {
+      const r = await api(`/api/video/${id}/geracao`);
+      if (ativa === id) mudarGeracao(r);
+    } catch (e) { if (ativa === id && e.status !== 404) timerGer = setTimeout(() => carregarGeracao(id), 6000); }
+  }
+  function mudarGeracao(r) {
+    const antes = ger;
+    ger = r;
+    if (antes.estado === 'gerando' && r.estado === 'pronto') { ligarSaida(); avisar('Vídeo pronto.'); }
+    if (antes.estado === 'gerando' && r.estado === 'sem-video') avisar('O Claude terminou sem vídeo novo: veja a resposta no nó Claude.');
+    // o Gerar repinta sempre (relógio); Vídeo e Claude só quando mudam, para não cortar o player nem o texto sendo digitado
+    const repintar = {
+      remotion: true,
+      saida: antes.videos[0]?.caminho !== r.videos[0]?.caminho || antes.estado !== r.estado,
+      claude: antes.chat.length !== r.chat.length || antes.estado !== r.estado,
+    };
+    for (const { el: c, no } of cards.values()) if (repintar[no.tipo]) c.querySelector('.card-corpo').replaceChildren(corpoDoNo(no));
+    clearTimeout(timerGer);
+    if (r.estado === 'gerando') { const id = ativa; timerGer = setTimeout(() => carregarGeracao(id), 3000); }
+  }
+  // vídeo pronto: se o Gerar ainda não tem um nó Vídeo ligado, cria um ao lado
+  function ligarSaida() {
+    let criou = false;
+    for (const g of grafo.nos.filter((n) => n.tipo === 'remotion')) {
+      if (grafo.links.some((l) => l.a === g.id && grafo.nos.find((n) => n.id === l.b)?.tipo === 'saida')) continue;
+      const v = adicionar('saida', { x: g.x + g.w + 90, y: g.y });
+      grafo.links.push({ a: g.id, b: v.id });
+      criou = true;
+    }
+    if (!criou) return;
+    pintarLigacoes();
+    centralizar(true); // o nó novo nasce à direita: enquadra para ele aparecer
   }
 
   function pintarNo(no) {
@@ -549,7 +662,7 @@ function montar(corpo) {
   });
   palco.addEventListener('wheel', (e) => {
     if (!ativa) return;
-    if (e.target.closest('textarea')) return;
+    if (e.target.closest('textarea, .video-chat')) return;
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       const r = palco.getBoundingClientRect();
@@ -602,7 +715,7 @@ function montar(corpo) {
   return {
     mostrar: () => { if (ativa) aplicarCam(); },
     esconder: () => { enviarGrafo(); },
-    limpar: () => { enviarGrafo(); clearTimeout(timerEnvio); },
+    limpar: () => { enviarGrafo(); clearTimeout(timerEnvio); clearTimeout(timerGer); },
   };
 }
 
