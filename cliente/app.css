@@ -568,7 +568,7 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-vazio h2 { margin: 0; font-size: 20px; }
 .video-vazio p { margin: 0; max-width: 46ch; color: var(--texto-2); }
 .video-vazio-icone { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--painel); border: 1px solid var(--linha); color: var(--acento); }
-.video-nos { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 340px); z-index: 5; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 6px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); }
+.video-nos { position: absolute; left: 170px; right: 170px; margin-inline: auto; bottom: 12px; width: max-content; max-width: calc(100% - 340px); z-index: 5; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 6px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); }
 .video-no-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--painel); color: inherit; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .video-no-chip:hover { border-color: var(--acento); }
 .video-no-chip small { font-weight: 400; color: var(--texto-2); }
