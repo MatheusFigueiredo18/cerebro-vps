@@ -62,3 +62,28 @@ Decisões do Matheus: o botão chama **"Gerar"**; Conteúdo principal e Referên
 1. Aprovar as fases e começar pela 1?
 2. O gerador roda Claude sem tela (automático) ou abre um terminal de conversa com o pedido pronto (você acompanha e ajusta)?
 3. Checar a licença do Remotion antes da fase 3, já que o uso seria em vídeo de cliente da Spoke?
+
+## Ajustes depois do primeiro teste real (2026-11-08)
+Pedido do Matheus depois de gerar o primeiro vídeo na VPS:
+- Fluxo: Conteúdo principal / Referência → Prompt (opcional, texto sobre aquela mídia) → Claude (opcional) → Gerar vídeo → **Vídeo Final** (novo nome do nó Vídeo).
+- Em todo card a entrada fica à esquerda e a saída à direita; Prompt e Claude ganharam entrada. O Gerar junta tudo subindo por Prompt, Claude e Lista (`cliente/video-grafo.js`, testado); o texto de um Prompt ligado numa mídia vai como "Sobre <arquivo>: <texto>".
+- Só gera com um Vídeo Final ligado na saída do Gerar (o nó não é mais criado sozinho).
+- O nó Claude só mostra conversa e status quando está ligado no Gerar.
+- Barra de baixo no centro: **+** (menu com os nós), **tesoura** (clique ou arraste por cima de uma ligação para cortar), lápis, nota adesiva e borracha.
+
+## Segunda rodada de ajustes (2026-11-08)
+- Referência do mesmo tamanho do Conteúdo principal; mídia preenche o card (`object-fit: cover`) em Principal, Referência e itens da Lista. O Vídeo Final segue sem cortar (é o resultado).
+- Lista: a mídia ligada (ou solta) nela sai do canvas e fica dentro dela (`dados.itens`); botão direito num item tira da lista.
+- Barra: Seleção (padrão; arrastar no vazio seleciona por área, Shift soma), Mão, +, tesoura, lápis, nota, borracha. Botão do meio arrasta o canvas em qualquer ferramenta.
+- Cards sem X: botão direito abre Duplicar, Copiar, Colar e Remover (atalhos Ctrl+D, Ctrl+C, Ctrl+V, Del; Ctrl+A seleciona tudo). A cópia fica no navegador e cola em outra sessão.
+- Som: o original do iPhone estava a -41,6 dB de média (quase mudo); o gerador agora normaliza a fala (loudnorm) e confere com volumedetect antes de entregar.
+- Nós Música e Efeito sonoro (áudio de Conteúdos: mp3, wav, m4a, aac, ogg, flac) ligam no Gerar, no Claude ou num Prompt; o servidor valida o áudio dentro do cérebro e passa "Música (fundo)" e "Efeito sonoro" no pedido.
+
+## Skill de edição que decide sozinha (2026-11-08)
+
+- Os 20 repositórios de motion graphics estão em `motion-graphics-repos/` (fora do git, README com link e objetivo de cada um).
+- O que foi aproveitado virou a skill `edicao-video` do cérebro (`cerebro-exemplo/.claude/skills/edicao-video/`), instalada também em `/home/cerebro/cerebro/.claude/skills/edicao-video` na VPS. O `promptGerador` manda o Claude sem tela ler essa skill antes de tudo; clicar em Gerar conta como aprovação.
+- A skill classifica o material (reel falado, montagem no ritmo, motion graphics de texto) e traz a tabela de decisões por situação: gancho dos 3 s, punch-in, apoio visual na palavra, corte seco como padrão, legenda, área segura, easing e molas, efeito sonoro por ação visível, música 11 dB abaixo da voz, master -14 LUFS e revisão por folha de contato.
+- Ferramentas: `scripts/transcrever.mjs` (whisper.cpp do projeto Remotion, tempo por palavra), scripts de corte de pausa e de erro do herk-edit-kit (MIT, ajustados para o ffmpeg 6.1 da VPS) e a biblioteca `sfx/` com 109 efeitos CC0.
+- Medido na VPS com o IMG_4937 (54 s, 4K HEVC 60 fps): transcrição 52 s; base 1080x1920 30 fps 108 s; cada corte na base 82 s (no 4K passava de 10 min, por isso o passo A0).
+- Não adotados: HyperFrames, GSAP, Lottie e Motion como motor (um motor só, Remotion), os sons de meme do `@remotion/sfx` (licença incerta) e geração de música por IA.

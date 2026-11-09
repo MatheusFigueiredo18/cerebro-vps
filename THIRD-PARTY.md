@@ -54,3 +54,8 @@ SOFTWARE.
 ## Simple Icons (logotipos de marcas na interface)
 
 Os desenhos em `cliente/logos.js` (Claude, Google Gemini, WhatsApp, FFmpeg, Vercel, GitHub, n8n, OpenRouter, Notion, Supabase e Postiz) são gerados a partir do pacote `simple-icons`, cujos arquivos estão em domínio público (CC0 1.0). As marcas pertencem aos seus respectivos donos e aparecem só para identificar cada serviço; este projeto não tem vínculo com eles nem é endossado por eles.
+
+## Habilidade edicao-video (cerebro-exemplo/.claude/skills/edicao-video)
+
+- `scripts/cut-silences.mjs`, `scripts/find-cut-candidates.mjs` e `scripts/apply-cuts.mjs` vêm do herk-edit-kit (https://github.com/nateherkai/herk-edit-kit), licença MIT, Copyright (c) 2026 Nate Herk. Texto completo e modificações em `scripts/LICENSE-herk-edit-kit.txt`.
+- `sfx/` vem do motion-graphics de Barty-Bart (https://github.com/Barty-Bart/motion-graphics), licença MIT (`sfx/LICENSE-motion-graphics.txt`). Os sons em si são CC0 1.0 (Freesound e Kenney), com origem de cada arquivo em `sfx/manifest.json` e `sfx/LICENSES.md`.
