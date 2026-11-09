@@ -8,8 +8,8 @@ Este projeto é uma **adaptação para uso pessoal** do **Core OS**, projeto de 
 
 ## Como a tela funciona
 
-- **Guias no topo, como no Chrome.** A primeira é sempre o **Grafo**. Cada página, banco ou função aberta vira uma guia. Abaixo fica a barra de caminho, com voltar, avançar e favorito.
-- **Lateral com 4 abas:** Arquivos (árvore e ações: nova página, pasta, banco, ordenar, recolher), Busca, Favoritos e Funções.
+- **Trilho à esquerda:** Grafo, as funções (Conversas, Conteúdos, WhatsApp, n8n, Quadro, Criação) e, por último, o **Cérebro**, que abre e fecha a lateral de arquivos. Páginas abertas aparecem abaixo de um traço.
+- **Lateral Cérebro:** a árvore de arquivos e suas ações (nova página, pasta, banco, ordenar, recolher, recarregar).
 - **Páginas em blocos:** cada página é um `.md`. Digite `/` para escolher o tipo de bloco. Salva sozinha e avisa se o arquivo mudou por fora.
 - **Bancos de dados:** uma pasta com um `.banco.json` e uma página `.md` por linha. Visões de tabela, quadro (arrastar muda o valor) e calendário.
 - **Funções:** Conversas (terminais do Claude Code num canvas), Conteúdos (galeria de mídias), WhatsApp (conexão e quem pode dar ordens) e n8n.

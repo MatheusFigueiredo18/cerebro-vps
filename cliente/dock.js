@@ -1,6 +1,6 @@
-// Trilho vertical à esquerda: Grafo, as Funções (respeita ordem, fixos e ocultos) e, abaixo de um traço, as páginas abertas.
+// Trilho vertical à esquerda: Grafo, as Funções (respeita ordem, fixos e ocultos), o Cérebro (abre e fecha a lateral de arquivos) e, abaixo de um traço, as páginas abertas.
 // Ao clicar, o botão "suspende" (sobe com brilho) e o conteúdo entra (ver .entra no CSS).
-import { $, el, icone, ler, ouvir } from './comum.js';
+import { $, el, icone, ler, ouvir, emitir } from './comum.js';
 import { FUNCOES, abrirFuncao } from './lateral.js';
 import { aplicarPrefs } from './personalizar.js';
 import * as shell from './shell.js';
@@ -23,6 +23,8 @@ function pintar() {
     const ligado = f.id === 'conteudos' ? janelaAberta : ativa?.tipo === f.id;
     itens.push(botao(f.nome, f.icone, ligado, () => abrirFuncao(f.id)));
   }
+  const lateralAberta = !document.body.classList.contains('sem-lateral');
+  itens.push(botao('Cérebro', 'cerebro', lateralAberta, () => emitir('lateral-alternar'), { dica: lateralAberta ? 'Esconder os arquivos do cérebro' : 'Mostrar os arquivos do cérebro' }));
   const paginas = shell.guias().filter((g) => g.id !== 'grafo' && !ids.has(g.tipo));
   if (paginas.length) {
     itens.push(el('hr', { class: 'dock-traco' }));
@@ -42,6 +44,7 @@ export function iniciar() {
   ouvir('guia-ativa', pintar);
   ouvir('guias-mudou', pintar);
   ouvir('funcoes-mudou', pintar);
+  ouvir('lateral-mudou', pintar);
   ouvir('conteudos-janela', (d) => { janelaAberta = !!d?.aberta; pintar(); });
   pintar();
 }

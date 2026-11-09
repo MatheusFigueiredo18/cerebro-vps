@@ -1,5 +1,5 @@
 // Entrada da interface: login, tema e montagem do painel.
-import { $, api, ler, guardar, ouvir, icone } from './comum.js';
+import { $, api, ler, guardar, ouvir, emitir, icone } from './comum.js';
 import * as shell from './shell.js';
 import * as lateral from './lateral.js';
 import * as dock from './dock.js';
@@ -51,15 +51,18 @@ function entrarNoPainel() {
   // No celular a lateral começa fechada e fica por cima do conteúdo (ver o CSS); no computador, aberta.
   const estreita = () => window.matchMedia('(max-width: 720px)').matches;
   document.body.classList.toggle('sem-lateral', ler('lateralFechada', estreita()));
-  $('#lateral-alternar').addEventListener('click', () => {
+  // o botão Cérebro do trilho abre e fecha a lateral de arquivos
+  ouvir('lateral-alternar', () => {
     const fechada = document.body.classList.toggle('sem-lateral');
     guardar('lateralFechada', fechada);
+    emitir('lateral-mudou');
     window.dispatchEvent(new Event('resize'));
   });
   // Escolheu uma guia no celular: a lateral se recolhe para não cobrir a página (sem gravar essa escolha).
   ouvir('guia-ativa', () => {
     if (estreita() && !document.body.classList.contains('sem-lateral')) {
       document.body.classList.add('sem-lateral');
+      emitir('lateral-mudou');
       window.dispatchEvent(new Event('resize'));
     }
   });
