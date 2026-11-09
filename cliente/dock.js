@@ -16,7 +16,7 @@ function pintar() {
   if (!caixa) return;
   const ativa = shell.ativa();
   const ids = new Set(FUNCOES.map((f) => f.id));
-  const itens = [botao('Grafo', 'grafo', ativa?.id === 'grafo', () => shell.ir('grafo'))];
+  const itens = [el('div', { class: 'dock-marca', 'aria-hidden': 'true' }, icone('cerebro')), botao('Grafo', 'grafo', ativa?.id === 'grafo', () => shell.ir('grafo'))];
   for (const f of FUNCOES) {
     const ligado = f.id === 'conteudos' ? janelaAberta : ativa?.tipo === f.id;
     itens.push(botao(f.nome, f.icone, ligado, () => abrirFuncao(f.id)));

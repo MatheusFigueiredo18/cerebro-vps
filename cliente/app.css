@@ -6,7 +6,7 @@
   --laranja: #c26a12; --verde: #23804a; --vermelho: #b7352c; --sombra: 0 1px 2px rgb(0 0 0 / .06), 0 6px 18px rgb(0 0 0 / .07);
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   --grafo-pasta: #c26a12; --grafo-nota: #2f5bd3; --grafo-midia: #23804a; --grafo-linha: #9a988f;
-  --rail: 98px; --barra: 0px; --lateral: 264px; --raio: 10px;
+  --rail: 56px; --barra: 0px; --lateral: 264px; --raio: 10px;
 }
 :root[data-tema="escuro"] {
   color-scheme: dark;
@@ -94,7 +94,7 @@ h1, h2, h3 { margin: 0; line-height: 1.25; }
 .lateral { position: fixed; top: var(--barra); bottom: 0; left: 0; width: calc(var(--lateral) + var(--rail)); padding-left: var(--rail); display: flex; flex-direction: column; background: var(--painel); border-right: 1px solid var(--linha); z-index: 15; }
 .sem-lateral .lateral { display: none; }
 .area { position: fixed; top: var(--barra); left: calc(var(--rail) + var(--lateral)); right: 0; bottom: 0; }
-.sem-lateral .area { left: 0; }
+.sem-lateral .area { left: var(--rail); }
 .guia-corpo { position: absolute; inset: 0; overflow: auto; }
 
 .lateral-titulo { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-3); padding: 6px 14px 4px; font-weight: 600; }
@@ -436,14 +436,16 @@ input.renomear { width: 100%; font-size: 13px; }
 }
 
 /* trilho das Funções (em pé, na esquerda): base sólida */
-.dock { position: fixed; left: 10px; top: 50%; transform: translateY(-50%); z-index: 35; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); max-height: calc(100vh - 20px); overflow-y: auto; scrollbar-width: none; }
+.dock { position: fixed; left: 0; top: 0; bottom: 0; width: var(--rail); z-index: 35; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; background: var(--painel); border-right: 1px solid var(--linha); overflow-y: auto; scrollbar-width: none; }
 .dock::-webkit-scrollbar { display: none; }
-.dock-botao { display: grid; justify-items: center; align-content: center; gap: 2px; width: 68px; height: 56px; flex: none; border-radius: 10px; color: var(--texto-2); font-size: 10.5px; line-height: 1.1; text-align: center; transition: transform .22s cubic-bezier(.2, .8, .2, 1), background .18s ease, box-shadow .22s ease, color .18s ease; }
-.dock-botao span { max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dock-botao svg.i { width: 22px; height: 22px; }
+.dock-marca { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 10px; flex: none; color: var(--texto); }
+.dock-marca svg.i { width: 28px; height: 28px; stroke-width: 2.2; }
+.dock-botao { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 10px; color: var(--texto-2); transition: background-color .15s ease, color .15s ease; }
+.dock-botao span { display: none; } /* no computador só o ícone; o nome aparece ao passar o mouse */
+.dock-botao svg.i { width: 20px; height: 20px; }
 .dock-botao:hover { background: var(--hover); color: var(--texto); }
-.dock-botao.ativo { background: var(--selecao); color: var(--acento); transform: translateY(-3px) scale(1.06); box-shadow: 0 8px 18px var(--vidro-sombra-baixo), 0 0 14px var(--halo); } /* suspenso */
-.dock-traco { width: 36px; margin: 4px 0; border: 0; border-top: 1px solid var(--linha); flex: none; }
+.dock-botao.ativo, .dock-botao.ativo:hover { background: var(--acento); color: var(--acento-texto); } /* selecionado: azul preenchido */
+.dock-traco { width: 24px; margin: 8px 0; border: 0; border-top: 1px solid var(--linha); flex: none; }
 .dock-item { position: relative; flex: none; }
 .dock-fechar { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 6px; display: none; place-items: center; color: var(--texto-3); background: var(--painel); }
 .dock-fechar svg.i { width: 12px; height: 12px; }
@@ -455,22 +457,20 @@ input.renomear { width: 100%; font-size: 13px; }
 .editor, .leitura, .banco, .config { padding-bottom: 100px; }
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .lateral, .dock {
+  .lateral {
     background-color: color-mix(in srgb, var(--acento) 7%, color-mix(in srgb, var(--painel) 52%, transparent));
     background-image: linear-gradient(150deg, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 42%);
     -webkit-backdrop-filter: var(--desfoque); backdrop-filter: var(--desfoque);
     border-color: var(--vidro-borda);
     box-shadow: inset 0 1px 0 var(--vidro-sombra-interna), 0 10px 30px var(--vidro-sombra-baixo);
   }
-  .dock { border-color: var(--vidro-borda); }
-  :root[data-tema="escuro"] :is(.lateral, .dock) { background-image: linear-gradient(150deg, rgb(255 255 255 / .1), rgb(255 255 255 / 0) 42%); }
+  :root[data-tema="escuro"] .lateral { background-image: linear-gradient(150deg, rgb(255 255 255 / .1), rgb(255 255 255 / 0) 42%); }
   /* item ativo com contorno e halo luminosos */
-  .lateral-abas [role="tab"][aria-selected="true"], .no.ativo, .dock-botao.ativo {
+  .lateral-abas [role="tab"][aria-selected="true"], .no.ativo {
     background-color: color-mix(in srgb, var(--acento) 20%, transparent); color: var(--acento);
     box-shadow: inset 0 0 0 1px var(--brilho), 0 0 16px var(--halo), inset 0 1px 0 var(--vidro-sombra-interna);
   }
-  .dock-botao.ativo { box-shadow: inset 0 0 0 1px var(--brilho), 0 8px 18px var(--vidro-sombra-baixo), 0 0 16px var(--halo), inset 0 1px 0 var(--vidro-sombra-interna); }
-  .dock-botao:hover, .no:hover, .funcao:hover { background-color: color-mix(in srgb, var(--texto) 8%, transparent); }
+  .no:hover { background-color: color-mix(in srgb, var(--texto) 8%, transparent); }
   .bt:not(.primario), .bt-icone, .campo {
     background-color: color-mix(in srgb, var(--card) 48%, transparent);
     background-image: linear-gradient(150deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%);
@@ -482,14 +482,10 @@ input.renomear { width: 100%; font-size: 13px; }
 }
 
 @media (max-width: 720px) {
-  .dock { left: 6px; padding: 4px; }
-  .dock-botao { width: 48px; height: 48px; }
-  .dock-botao span { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .dock-botao { transition: none; } }
 @media (prefers-reduced-transparency: reduce) {
   :root { --desfoque: none; }
-  .lateral, .dock { background-color: var(--painel) !important; background-image: none !important; }
+  .lateral { background-color: var(--painel) !important; background-image: none !important; }
 }
 
 /* Conversas no celular: a pinça é do canvas, não do navegador */
@@ -754,7 +750,6 @@ body:is([data-guia="pagina"], [data-guia="banco"], [data-guia="arquivo"]) .area 
 @media (max-width: 720px) { .guia-corpo.lousa-espaco .lousa-coluna { margin: 0; border-radius: 0; } }
 
 /* com a lateral fechada, a pílula das Funções flutua sobre a esquerda: as ferramentas se afastam dela */
-body.sem-lateral :is(.lousa-ferramentas, .lousa-desfazer, .video-ferramentas) { left: calc(var(--rail) + 4px); }
 
 /* Conteúdos: lixeira sempre visível no canto do cartão e confirmação em cima dele */
 .cartao-arrastavel { position: relative; }
