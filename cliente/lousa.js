@@ -19,23 +19,7 @@ const FERRAMENTAS = [
 ];
 const FORMAS = [['rect', 'retangulo', 'Retângulo (R)'], ['ellipse', 'oval', 'Oval (O)'], ['tri', 'triangulo', 'Triângulo'], ['diamond', 'losango', 'Losango']];
 const LINHAS = [['line', 'linha', 'Linha'], ['arrow', 'setaDiag', 'Seta (L)']];
-const DICAS = {
-  select: 'Clique para selecionar, arraste para mover. Arraste o fundo para mover o quadro; Shift + arraste seleciona vários. Ctrl+V cola imagem ou texto.',
-  hand: 'Arraste para mover o quadro. Dica: segure Espaço em qualquer ferramenta.',
-  pen: 'Arraste para desenhar. Escolha cor e espessura abaixo. Ctrl+Z desfaz.',
-  hl: 'Arraste sobre o que quiser destacar. O marca-texto é transparente.',
-  smart: 'Desenhe um retângulo, círculo, triângulo ou linha, mesmo torto: ele endireita sozinho.',
-  er: 'Passe sobre um traço para apagá-lo inteiro. Só apaga desenhos, não post-its nem formas.',
-  pre: 'Passe sobre um traço para apagar só aquele pedaço.',
-  lasso: 'Contorne com o mouse o que quer selecionar e solte.',
-  sticky: 'Clique no quadro para colocar um post-it e já escreva.',
-  text: 'Clique no quadro e escreva. Enter quebra a linha, Esc termina.',
-  rect: 'Arraste para desenhar o retângulo (Shift deixa quadrado).', ellipse: 'Arraste para desenhar a oval (Shift deixa círculo).',
-  tri: 'Arraste para desenhar o triângulo.', diamond: 'Arraste para desenhar o losango.',
-  line: 'Arraste para traçar uma linha. Solte sobre um objeto para prender.',
-  arrow: 'Arraste para traçar uma seta. Comece e termine sobre objetos para prendê-la a eles.',
-  frame: 'Arraste para criar uma moldura que agrupa e apresenta um conjunto de objetos.',
-};
+
 const CURSOR = { select: 'default', hand: 'grab', pen: 'crosshair', hl: 'crosshair', smart: 'crosshair', er: 'cell', pre: 'cell', lasso: 'crosshair', sticky: 'copy', text: 'text' };
 const TECLAS = { v: 'select', h: 'hand', p: 'pen', e: 'er', t: 'text', n: 'sticky', r: 'rect', o: 'ellipse', l: 'arrow', f: 'frame', d: 'smart', q: 'lasso', s: 'rect' };
 // Estilos de fundo (cada quadro guarda o seu). Medidas em unidades do mundo; margem e caixas ficam na coluna x = 0, como a borda da página.
@@ -84,7 +68,6 @@ function montar(corpo) {
   const gavetaFormas = el('div', { class: 'lousa-gaveta lousa-painel', hidden: true });
   const gavetaLinhas = el('div', { class: 'lousa-gaveta lousa-painel', hidden: true });
   const opcoes = el('div', { class: 'lousa-opcoes lousa-painel', hidden: true });
-  const dica = el('div', { class: 'lousa-dica' });
   const btnDesfazer = bt('lousa-bt', 'Desfazer (Ctrl+Z)', 'desfazer', () => desfazer(), { disabled: true });
   const btnRefazer = bt('lousa-bt', 'Refazer (Ctrl+Y)', 'refazer', () => refazer(), { disabled: true });
   const pilula = el('div', { class: 'lousa-desfazer lousa-painel' }, btnDesfazer, btnRefazer);
@@ -132,7 +115,7 @@ function montar(corpo) {
   const corpoAtalhos = el('div', { class: 'lousa-atalhos' });
   const modalAtalhos = el('div', { class: 'lousa-modal', hidden: true }, el('div', { class: 'lousa-card lousa-painel lousa-card-larga', role: 'dialog', 'aria-label': 'Atalhos de teclado' },
     el('h2', {}, 'Atalhos de teclado'), corpoAtalhos, el('div', { class: 'lousa-linha' }, el('span', { class: 'lousa-espaco-flex' }), el('button', { type: 'button', class: 'bt primario', onclick: () => { modalAtalhos.hidden = true; } }, 'Fechar'))));
-  const palco = el('div', { class: 'palco lousa-palco' }, tela, mini, vazio, topo, barra, gavetaFormas, gavetaLinhas, opcoes, dica, pilula, zoom, menu, ctx, pop, editor, cartao, modalExp, modalAtalhos);
+  const palco = el('div', { class: 'palco lousa-palco' }, tela, mini, vazio, topo, barra, gavetaFormas, gavetaLinhas, opcoes, pilula, zoom, menu, ctx, pop, editor, cartao, modalExp, modalAtalhos);
 
   const busca = el('input', { type: 'search', class: 'lousa-busca', placeholder: 'Buscar quadro', 'aria-label': 'Buscar quadro', oninput: () => pintarLista() });
   const ordem = el('select', { class: 'lousa-ordem', 'aria-label': 'Ordenar', onchange: () => pintarLista() },
@@ -422,7 +405,7 @@ function montar(corpo) {
     const alvo = (nome) => barra.querySelector(`[data-f="${nome}"]`);
     if (!gavetaFormas.hidden) gavetaFormas.style.top = `${alvo('formas').offsetTop + barra.offsetTop - barra.scrollTop}px`;
     if (!gavetaLinhas.hidden) gavetaLinhas.style.top = `${alvo('linhas').offsetTop + barra.offsetTop - barra.scrollTop}px`;
-    tela.style.cursor = CURSOR[t] ?? 'crosshair'; dica.textContent = DICAS[t] ?? ''; pintarOpcoes(); pintarCtx(); redesenhar();
+    tela.style.cursor = CURSOR[t] ?? 'crosshair'; pintarOpcoes(); pintarCtx(); redesenhar();
   }
   function amostras(itens, atual, aoEscolher, semNenhum) {
     const caixa = el('div', { class: 'lousa-grupo' });

@@ -3,12 +3,10 @@
 :root { --dock-h: 0px; }
 
 @media (max-width: 820px) {
-  :root { --rail: 0px; --barra: 42px; --dock-h: calc(62px + env(safe-area-inset-bottom, 0px)); }
+  :root { --rail: 0px; --dock-h: calc(62px + env(safe-area-inset-bottom, 0px)); }
   body { overscroll-behavior: none; }
 
   /* ---------- moldura: barra de cima, área, lateral e dock ---------- */
-  .caminho { padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
-  .caminho .bt-icone { width: 36px; height: 36px; }
   .area { left: 0; bottom: var(--dock-h); }
   .lateral { padding-left: 0; bottom: var(--dock-h); width: min(88vw, 340px); }
   .dock {
@@ -23,11 +21,6 @@
   .dock-botao.ativo { transform: none; }
   .dock-traco { width: 1px; height: 34px; margin: 10px 4px; border-top: 0; border-left: 1px solid var(--linha); align-self: center; }
   .dock-fechar { display: grid; width: 22px; height: 22px; }
-  /* Favoritos e Funções repetem o dock: a lateral fica só com Arquivos e Busca */
-  .lateral-abas [data-aba="favoritos"], .lateral-abas [data-aba="funcoes"] { display: none; }
-  /* no Quadro a barra de cima do próprio quadro basta: a do caminho some e libera espaço */
-  body[data-guia="lousa"] { --barra: 0px; }
-  body[data-guia="lousa"] .caminho { display: none; }
   /* botões do palco (zoom, centralizar, barra da direita) no alto à direita, longe das ferramentas de baixo */
   .palco-acoes { top: 8px; bottom: auto; right: 8px; }
 
@@ -61,7 +54,6 @@
   .lousa-cor-livre { width: 32px; height: 32px; }
   .lousa-predef { width: 38px; height: 38px; }
   .lousa-grupo input[type=range], .lousa-ctx-faixa { width: 120px; height: 32px; }
-  .lousa-dica { display: none; }
   /* desfazer e zoom no alto, ao lado do polegar que segura o aparelho */
   .lousa-desfazer { left: 8px; bottom: auto; top: 58px; }
   .lousa-desfazer .lousa-bt { width: 44px; height: 44px; }

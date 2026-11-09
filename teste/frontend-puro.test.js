@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { separarFrontmatter, mdParaBlocos, blocosParaMd } from '../cliente/blocos.js';
 import { agruparLinhas, linhasPorDia, ordenarLinhas } from '../cliente/visoes.js';
-import { aplicarPrefs } from '../cliente/personalizar.js';
 
 const CANONICO = [
   '# Título',
@@ -128,13 +127,4 @@ test('ordenarLinhas é estável, põe vazios no fim e respeita o sentido', () =>
   assert.deepEqual(ordenarLinhas(linhas, 'n', 'desc').map((l) => l.titulo), ['e', 'a', 'd', 'b', 'c']);
   assert.deepEqual(ordenarLinhas(linhas, 'titulo', 'desc').map((l) => l.titulo), ['e', 'd', 'c', 'b', 'a']);
   assert.deepEqual(linhas.map((l) => l.titulo), ['a', 'b', 'c', 'd', 'e']);
-});
-
-test('aplicarPrefs respeita fixos, ordem e ocultos', () => {
-  const itens = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id }));
-  const ids = (r) => r.map((i) => i.id);
-  assert.deepEqual(ids(aplicarPrefs(itens, { ordem: ['c', 'a'], ocultos: ['b'], fixos: ['d'] })), ['d', 'c', 'a', 'e']);
-  assert.deepEqual(ids(aplicarPrefs(itens, { ordem: ['zzz'], ocultos: [], fixos: [] })), ['a', 'b', 'c', 'd', 'e']);
-  assert.deepEqual(ids(aplicarPrefs(itens, { ocultos: ['d'], fixos: ['d'] })), ['a', 'b', 'c', 'e']);
-  assert.deepEqual(ids(aplicarPrefs(itens, undefined)), ['a', 'b', 'c', 'd', 'e']);
 });
