@@ -7,7 +7,7 @@ import path from 'node:path';
 import { lerJson, gravarJson } from './dados.js';
 
 const ID = /^[a-f0-9]{16}$/;
-const TIPOS = new Set(['stroke', 'shape', 'sticky', 'text', 'frame', 'line']);
+const TIPOS = new Set(['stroke', 'shape', 'sticky', 'text', 'frame', 'line', 'image']);
 export const LIMITES = { bytes: 8 * 1024 * 1024, objetos: 20000, pontos: 50000, texto: 20000, miniatura: 60 * 1024 };
 
 const invalida = (porque) => new Error(`quadro inválido: ${porque}`);
@@ -20,6 +20,7 @@ function validarObjeto(o, i) {
   if (!TIPOS.has(o.t)) throw invalida(`tipo do objeto ${i}`);
   for (const k of ['x', 'y', 'w', 'h', 'x1', 'y1', 'x2', 'y2', 's', 'r', 'fs']) if (k in o && !finito(o[k])) throw invalida(`número ${k} do objeto ${i}`);
   for (const k of ['text', 'title']) if (k in o && (typeof o[k] !== 'string' || o[k].length > LIMITES.texto)) throw invalida(`texto do objeto ${i}`);
+  if (o.t === 'image' && (typeof o.src !== 'string' || !o.src || o.src.length > 1000 || /^[a-z]+:/i.test(o.src))) throw invalida(`imagem do objeto ${i}`); // caminho no cérebro, nunca URL ou data:
   if (o.t === 'stroke') {
     if (!Array.isArray(o.p) || !o.p.length || o.p.length > LIMITES.pontos) throw invalida(`pontos do traço ${i}`);
     for (const p of o.p) if (!Array.isArray(p) || p.length !== 2 || !finito(p[0]) || !finito(p[1])) throw invalida(`ponto do traço ${i}`);
@@ -33,6 +34,7 @@ export function validarObjetos(objs) {
 }
 
 const vistaOk = (v) => (v && finito(v.x) && finito(v.y) && finito(v.z) && v.z > 0.01 && v.z < 100 ? { x: v.x, y: v.y, z: v.z } : { x: 80, y: 80, z: 1 });
+const fundoOk = (f) => (typeof f === 'string' && /^[a-z-]{1,24}$/.test(f) ? f : undefined); // estilo do fundo (o painel conhece os nomes)
 const miniaturaOk = (m) => (typeof m === 'string' && m.startsWith('data:image/png;base64,') && m.length <= LIMITES.miniatura && /^[A-Za-z0-9+/=,:;]+$/.test(m) ? m : '');
 
 export function criarLousas(dados, agora = Date.now) {
@@ -76,6 +78,7 @@ export function criarLousas(dados, agora = Date.now) {
     const novo = {
       ...atual,
       titulo: 'titulo' in b ? (texto(b.titulo, 120) || 'Quadro sem título') : atual.titulo,
+      fundo: 'fundo' in b ? fundoOk(b.fundo) : atual.fundo,
       vista: vistaOk(b.vista),
       objs: b.objs,
       miniatura: 'miniatura' in b ? miniaturaOk(b.miniatura) : atual.miniatura,

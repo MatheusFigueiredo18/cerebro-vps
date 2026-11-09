@@ -1,6 +1,6 @@
 // Função Conversas: canvas com cards arrastáveis e zoom (terminal, subagentes, mídias), terminal xterm por WebSocket,
 // lista de conversas à direita, "comece aqui", seletor de motor e o histórico das conversas do WhatsApp.
-import { el, api, icone, botaoIcone, logo, ler, guardar, emitir, avisar, hora, botaoConfirmar } from './comum.js';
+import { el, api, icone, botaoIcone, logo, ler, guardar, emitir, ouvir, avisar, hora, botaoConfirmar } from './comum.js';
 import { lerNota, nomeBase, tipoArquivo } from './formatos.js';
 import { chaveDoMotor } from './marcas.js';
 import { zoomEm, pinca as pincaCam, enquadrar, layoutFilhos, TAM } from './camera.js';
@@ -461,10 +461,15 @@ async function soltarNaArea(e) {
   // Se veio da galeria, ignora dt.files: o navegador anexa uma cópia da imagem arrastada e ela seria enviada de novo (duplicada).
   const arquivos = caminhos.length ? [] : [...(dt.files ?? [])];
   const noPrompt = !!e.target.closest?.('.card-terminal');
-  const ponto = { x: e.clientX, y: e.clientY };
   const alvoId = ativa;
   if (arquivos.length) caminhos.push(...await enviarArquivos(arquivos));
-  if (!caminhos.length || !ui || alvoId !== ativa) return;
+  if (alvoId === ativa) colocarNaArea(caminhos, { x: e.clientX, y: e.clientY }, noPrompt);
+}
+
+// põe os arquivos na área de trabalho, com o centro em ponto (coordenadas da janela); sem ponto, no meio do palco
+function colocarNaArea(caminhos, ponto, noPrompt = false) {
+  if (!caminhos.length || !ui) return;
+  if (!ponto) { const r = ui.palco.getBoundingClientRect(); ponto = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
   const principal = cards.get('terminal') ?? cards.get('historico');
   let pos;
   if (noPrompt && principal) pos = { x: principal.r.x + principal.r.w + 80, y: principal.r.y }; // ao lado do terminal, ligado a ele
@@ -763,10 +768,12 @@ function montar(corpo) {
   pintarEspaco();
   atualizarEstado();
   const relogio = setInterval(() => { if (!document.hidden) atualizarEstado(); }, CONSULTA_MS);
+  const paraArea = ouvir('conteudos-para-area', (caminhos) => colocarNaArea(caminhos));
   return {
     mostrar: () => { atualizarEstado(); for (const T of terminais.values()) if (T.aberto && T.host.isConnected) { try { T.fit.fit(); } catch { /* */ } } },
     limpar() {
       clearInterval(relogio);
+      paraArea();
       document.removeEventListener('keydown', tecla);
       for (const id of [...terminais.keys()]) descartarTerminal(id);
       ui = null;

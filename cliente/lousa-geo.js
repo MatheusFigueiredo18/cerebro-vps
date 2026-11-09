@@ -1,6 +1,6 @@
 // Geometria das Lousas, sem DOM e sem estado: tudo em coordenadas do mundo (a câmera fica em camera.js).
-// Objetos: stroke (traço: tool, c, s, p), shape (k: rect, ellipse, tri, diamond), sticky, text, frame, line (k: line, arrow; a/b = {id} preso a um objeto).
-// Caixas (shape, sticky, text, frame) têm x, y, w, h e r (rotação em radianos). Cor 'ink' = a cor da tinta do tema.
+// Objetos: stroke (traço: tool, c, s, p), shape (k: rect, ellipse, tri, diamond), sticky, text, frame, image (src = caminho no cérebro), line (k: line, arrow; a/b = {id} preso a um objeto).
+// Caixas (shape, sticky, text, frame, image) têm x, y, w, h e r (rotação em radianos). Cor 'ink' = a cor da tinta do tema.
 
 export const limitar = (v, min, max) => Math.max(min, Math.min(max, v));
 export const distSeg = (px, py, ax, ay, bx, by) => {
@@ -12,7 +12,7 @@ export const girar = (x, y, cx, cy, a) => {
   const c = Math.cos(a); const s = Math.sin(a); const dx = x - cx; const dy = y - cy;
   return [cx + dx * c - dy * s, cy + dx * s + dy * c];
 };
-export const ehCaixa = (o) => o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'frame';
+export const ehCaixa = (o) => o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'frame' || o.t === 'image';
 export const centro = (o) => [o.x + o.w / 2, o.y + o.h / 2];
 export const porIdDe = (objs) => { const m = new Map(objs.map((o) => [o.id, o])); return (id) => m.get(id) ?? null; };
 export const linhasDoTexto = (o) => String(o.text ?? '').split('\n').length;
@@ -100,7 +100,7 @@ export function escolher(objs, x, y, tol) {
 }
 export function ondePrender(objs, x, y, tol) { // em quê uma seta pode se prender
   const porId = porIdDe(objs);
-  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if ((o.t === 'shape' || o.t === 'sticky' || o.t === 'text') && acertou(o, x, y, tol, porId)) return o; }
+  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if ((o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'image') && acertou(o, x, y, tol, porId)) return o; }
   return null;
 }
 export const idsDoGrupo = (objs, o) => (o.g ? objs.filter((x) => x.g === o.g).map((x) => x.id) : [o.id]);

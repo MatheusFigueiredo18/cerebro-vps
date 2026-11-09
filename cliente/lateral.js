@@ -1,10 +1,8 @@
-// Lateral: abas Arquivos (árvore e ações), Busca, Favoritos e Funções; tema e sair no rodapé.
+// Lateral "Cérebro": a árvore de arquivos com as ações; tema e sair no rodapé. Abre pelo botão Cérebro do dock.
 import { $, el, api, icone, botaoIcone, ler, guardar, ouvir, emitir, avisar } from './comum.js';
 import { ordenarNos, guiaDeArquivo, ehMidia, midiasIrmas, pastaDe, nomeBase } from './formatos.js';
-import { aplicarPrefs } from './personalizar.js';
 import * as shell from './shell.js';
 
-const ABAS = [['arquivos', 'Arquivos', 'pasta'], ['busca', 'Busca', 'busca'], ['favoritos', 'Favoritos', 'estrela'], ['funcoes', 'Funções', 'raio']];
 const ORDENS = [['nome', 'Nome (A a Z)'], ['nome-desc', 'Nome (Z a A)'], ['recentes', 'Mais recentes']];
 export const FUNCOES = [
   { id: 'conversas', nome: 'Conversas', icone: 'conversa', faz: 'Agentes de IA trabalhando no cérebro' },
@@ -17,7 +15,6 @@ export const FUNCOES = [
 
 let dados = []; // árvore como veio do servidor
 let assinatura = '';
-let aba = ler('lateralAba', 'arquivos');
 let ordem = ler('lateralOrdem', 'nome');
 let abertas = new Set(ler('pastasAbertas', ['conteudo']));
 let selecionada = ''; // pasta onde nascem as páginas, pastas e bancos novos
@@ -133,7 +130,6 @@ function pedirNome(rotulo) {
 }
 
 async function criar(rotulo, rota, campo) {
-  mostrarAba('arquivos');
   const nome = await pedirNome(rotulo);
   if (nome === null) return null;
   try {
@@ -174,98 +170,9 @@ function menuOrdenar(botao) {
   m.querySelector('[aria-checked="true"]').focus();
 }
 
-// ---------- busca ----------
-let pedidoBusca = 0;
-let esperaBusca;
-const linhaResultado = (titulo, sub, aoAbrir, aoRemover) => el('div', { class: 'res' },
-  el('button', { type: 'button', class: 'res-abrir', onclick: aoAbrir }, el('b', {}, titulo), el('small', {}, sub)),
-  aoRemover ? botaoIcone('x', `Tirar ${titulo} dos favoritos`, aoRemover, 'pequeno') : null);
-
-async function buscar() {
-  const q = partes.campoBusca.value.trim();
-  const caixa = partes.resultados;
-  const meu = ++pedidoBusca;
-  if (!q) { caixa.replaceChildren(el('p', { class: 'vazio' }, 'Digite para buscar no título e no texto das páginas.')); return; }
-  let r = [];
-  try { r = await api(`/api/busca?q=${encodeURIComponent(q)}`); } catch (e) { if (meu === pedidoBusca) caixa.replaceChildren(el('p', { class: 'vazio' }, e.message)); return; }
-  if (meu !== pedidoBusca) return; // chegou a resposta de uma busca antiga
-  caixa.replaceChildren(...(r.length ? r.map((x) => linhaResultado(x.titulo, x.trecho || x.caminho, () => abrirCaminho(x.caminho))) : [el('p', { class: 'vazio' }, 'Nada encontrado.')]));
-}
-
-// ---------- favoritos ----------
-function pintarFavoritos() {
-  const lista = shell.favoritos();
-  partes.favoritos.replaceChildren(...(lista.length
-    ? lista.map((f) => linhaResultado(f.titulo, f.caminho ?? '', () => shell.abrir(f), () => {
-      guardar('favoritos', shell.favoritos().filter((x) => x.id !== f.id));
-      emitir('favoritos-mudou');
-    }))
-    : [el('p', { class: 'vazio' }, 'Use a estrela na barra de cima para guardar aqui uma página, um banco ou um arquivo.')]));
-}
-
-// ---------- funções ----------
-const prefsFuncoes = () => ler('funcoesPrefs', { ordem: [], ocultos: [], fixos: [] });
-function pintarFuncoes() {
-  const prefs = prefsFuncoes();
-  const salvar = (p) => { guardar('funcoesPrefs', p); pintarFuncoes(); emitir('funcoes-mudou'); };
-  const visiveis = aplicarPrefs(FUNCOES, prefs);
-  const mover = (i, d) => {
-    const ids = visiveis.map((f) => f.id);
-    const j = i + d;
-    if (j < 0 || j >= ids.length || prefs.fixos.includes(ids[i]) !== prefs.fixos.includes(ids[j])) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    salvar({ ...prefs, ordem: ids });
-  };
-  const linhas = visiveis.map((f, i) => {
-    const fixo = prefs.fixos.includes(f.id);
-    return el('div', { class: `funcao${fixo ? ' fixa' : ''}` },
-      el('button', { type: 'button', class: 'funcao-abrir', onclick: () => abrirFuncao(f.id) }, icone(f.icone), el('span', {}, el('b', {}, f.nome), el('small', {}, f.faz))),
-      el('span', { class: 'funcao-acoes' },
-        botaoIcone('fixar', fixo ? `Soltar ${f.nome}` : `Fixar ${f.nome} no topo`, () => salvar({ ...prefs, fixos: fixo ? prefs.fixos.filter((x) => x !== f.id) : [...prefs.fixos, f.id] }), `pequeno${fixo ? ' ligado' : ''}`),
-        botaoIcone('cima', `Subir ${f.nome}`, () => mover(i, -1), 'pequeno'),
-        botaoIcone('baixo', `Descer ${f.nome}`, () => mover(i, 1), 'pequeno'),
-        botaoIcone('ocultar', `Ocultar ${f.nome}`, () => salvar({ ...prefs, ocultos: [...prefs.ocultos, f.id], fixos: prefs.fixos.filter((x) => x !== f.id) }), 'pequeno')));
-  });
-  const ocultas = FUNCOES.filter((f) => prefs.ocultos.includes(f.id));
-  partes.funcoes.replaceChildren(...linhas);
-  if (ocultas.length) {
-    partes.funcoes.append(el('p', { class: 'rotulo secao' }, 'Ocultas'), ...ocultas.map((f) => el('div', { class: 'funcao oculta' },
-      el('span', { class: 'funcao-abrir' }, icone(f.icone), el('span', {}, el('b', {}, f.nome))),
-      el('span', { class: 'funcao-acoes' }, botaoIcone('olho', `Mostrar ${f.nome}`, () => salvar({ ...prefs, ocultos: prefs.ocultos.filter((x) => x !== f.id) }), 'pequeno')))));
-  }
-}
-
-// ---------- abas ----------
-function mostrarAba(id) {
-  aba = ABAS.some((a) => a[0] === id) ? id : 'arquivos';
-  guardar('lateralAba', aba);
-  for (const b of partes.abas.querySelectorAll('[role="tab"]')) {
-    const sel = b.dataset.aba === aba;
-    b.setAttribute('aria-selected', String(sel));
-    b.tabIndex = sel ? 0 : -1;
-  }
-  for (const [nome, secao] of Object.entries(partes.secoes)) secao.hidden = nome !== aba;
-  partes.titulo.textContent = ABAS.find((a) => a[0] === aba)[1];
-  if (aba === 'busca') partes.campoBusca.focus();
-  if (aba === 'favoritos') pintarFavoritos();
-  if (aba === 'funcoes') pintarFuncoes();
-}
-
 export function iniciar({ alternarTema, pintarBotaoTema, sair }) {
   const lado = $('#lateral');
-  partes.abas = el('div', { class: 'lateral-abas', role: 'tablist', 'aria-label': 'Seções da lateral' }, ABAS.map(([id, nome, ic]) => el('button', {
-    type: 'button', role: 'tab', class: 'bt-icone', title: nome, 'aria-label': nome, dados: { aba: id }, 'aria-controls': `lateral-${id}`,
-  }, icone(ic))));
-  partes.abas.addEventListener('click', (e) => { const b = e.target.closest('[data-aba]'); if (b) mostrarAba(b.dataset.aba); });
-  partes.abas.addEventListener('keydown', (e) => {
-    const i = ABAS.findIndex((a) => a[0] === aba);
-    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-    if (!d) return;
-    e.preventDefault();
-    mostrarAba(ABAS[(i + d + ABAS.length) % ABAS.length][0]);
-    partes.abas.querySelector('[aria-selected="true"]').focus();
-  });
-  partes.titulo = el('h2', { class: 'lateral-titulo' });
+  partes.titulo = el('h2', { class: 'lateral-titulo' }, 'Cérebro');
 
   partes.acoes = el('div', { class: 'lateral-acoes' },
     botaoIcone('novaPagina', 'Nova página', novaPagina),
@@ -277,33 +184,18 @@ export function iniciar({ alternarTema, pintarBotaoTema, sair }) {
   partes.novo = el('div', { class: 'lateral-novo', hidden: true });
   partes.arvore = el('div', { class: 'arvore' });
   partes.arvore.addEventListener('click', cliqueNaArvore);
-  partes.campoBusca = el('input', { class: 'campo', type: 'search', placeholder: 'Buscar nas páginas', 'aria-label': 'Buscar nas páginas', spellcheck: 'false' });
-  partes.campoBusca.addEventListener('input', () => { clearTimeout(esperaBusca); esperaBusca = setTimeout(buscar, 250); });
-  partes.resultados = el('div', { class: 'lista' });
-  partes.favoritos = el('div', { class: 'lista' });
-  partes.funcoes = el('div', { class: 'lista' });
-  partes.secoes = {
-    arquivos: el('section', { id: 'lateral-arquivos', class: 'lateral-secao' }, partes.acoes, partes.novo, partes.arvore),
-    busca: el('section', { id: 'lateral-busca', class: 'lateral-secao' }, el('div', { class: 'lateral-busca' }, partes.campoBusca), partes.resultados),
-    favoritos: el('section', { id: 'lateral-favoritos', class: 'lateral-secao' }, partes.favoritos),
-    funcoes: el('section', { id: 'lateral-funcoes', class: 'lateral-secao' }, partes.funcoes),
-  };
   const botaoTema = el('button', { type: 'button', class: 'bt-rodape', onclick: () => alternarTema() });
   pintarBotaoTema(botaoTema);
   document.addEventListener('tema-mudou', () => pintarBotaoTema(botaoTema));
   const rodape = el('div', { class: 'lateral-rodape' }, botaoTema, el('button', { type: 'button', class: 'bt-rodape', onclick: sair }, icone('sair'), 'Sair'));
-  lado.append(partes.abas, partes.titulo, ...Object.values(partes.secoes), rodape);
+  lado.append(partes.titulo, el('section', { class: 'lateral-secao' }, partes.acoes, partes.novo, partes.arvore), rodape);
 
   ouvir('nova-pagina', novaPagina);
-  ouvir('favoritos-mudou', () => { if (aba === 'favoritos') pintarFavoritos(); });
   ouvir('guia-ativa', (g) => {
     for (const b of partes.arvore.querySelectorAll('.no')) b.classList.toggle('ativo', b.dataset.caminho === g?.caminho);
   });
   ouvir('arvore-mudou', () => carregarArvore(true));
-  mostrarAba(aba);
-  pintarBusca();
   carregarArvore(true);
   setInterval(() => { if (!document.hidden) carregarArvore(); }, 6000);
 }
 
-const pintarBusca = () => buscar();

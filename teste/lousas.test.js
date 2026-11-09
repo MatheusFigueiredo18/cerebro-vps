@@ -60,6 +60,17 @@ test('lousas: título e miniatura são limpos; vista inválida volta ao padrão'
   assert.equal(l.ler(a.id).miniatura, 'data:image/png;base64,iVBORw0KGgo=');
 });
 
+test('lousas: estilo do fundo é guardado, mantido sem o campo e descartado se inválido', () => {
+  const l = criarLousas(tmp('dados-'));
+  const a = l.criar('x');
+  l.salvar(a.id, { versao: 1, objs: [], fundo: 'caderno' });
+  assert.equal(l.ler(a.id).fundo, 'caderno');
+  l.salvar(a.id, { versao: 2, objs: [] });
+  assert.equal(l.ler(a.id).fundo, 'caderno');
+  l.salvar(a.id, { versao: 3, objs: [], fundo: '<script>' });
+  assert.equal(l.ler(a.id).fundo, undefined);
+});
+
 test('lousas: objetos inválidos são recusados', () => {
   assert.throws(() => validarObjetos('x'), /inválid/);
   assert.throws(() => validarObjetos([{ id: 'a', t: 'script' }]), /tipo/);
@@ -70,7 +81,11 @@ test('lousas: objetos inválidos são recusados', () => {
   assert.throws(() => validarObjetos([{ t: 'text' }]), /id/);
   assert.throws(() => validarObjetos([{ id: 'a', t: 'text', text: 'x'.repeat(20001) }]), /texto/);
   assert.throws(() => validarObjetos(Array.from({ length: 20001 }, (_, i) => ({ id: String(i), t: 'text' }))), /grande demais/);
+  assert.throws(() => validarObjetos([{ id: 'a', t: 'image', x: 0, y: 0, w: 10, h: 10 }]), /imagem/);
+  assert.throws(() => validarObjetos([{ id: 'a', t: 'image', src: 'data:image/png;base64,AAAA' }]), /imagem/);
+  assert.throws(() => validarObjetos([{ id: 'a', t: 'image', src: 'https://exemplo.com/x.png' }]), /imagem/);
   assert.doesNotThrow(() => validarObjetos([traco(), postit(), { id: 'l', t: 'line', k: 'arrow', x1: 0, y1: 0, x2: 5, y2: 5, a: { id: 's1' }, b: null }]));
+  assert.doesNotThrow(() => validarObjetos([{ id: 'i', t: 'image', src: 'conteudo/quadros/colado.png', x: 0, y: 0, w: 320, h: 200, r: 0 }]));
 });
 
 test('lousas: id fora do padrão nunca toca o disco (sem travessia de pasta)', () => {
