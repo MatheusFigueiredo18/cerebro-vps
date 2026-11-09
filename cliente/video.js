@@ -116,14 +116,13 @@ function montar(corpo) {
   }
   document.addEventListener('pointerdown', (e) => { if (!barraNos.hidden && !e.target.closest('.video-ferramentas')) abrirMenuNos(false); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !barraNos.hidden) abrirMenuNos(false); });
+  const alternarColuna = () => guardar('videoColunaRecolhida', corpo.classList.toggle('sem-coluna'));
   const zoomIndicador = el('div', { class: 'zoom-indicador', hidden: true });
   const acoes = el('div', { class: 'palco-acoes' },
     botaoIcone('mais', 'Aproximar', () => zoomCentro(1.25)),
     botaoIcone('menos', 'Afastar', () => zoomCentro(0.8)),
     botaoIcone('alvo', 'Enquadrar todos os nós', () => centralizar(true)),
-    botaoIcone('lateralDireita', 'Recolher ou mostrar a barra de sessões', () => {
-      guardar('videoColunaRecolhida', corpo.classList.toggle('sem-coluna'));
-    }));
+    botaoIcone('lateralDireita', 'Recolher ou mostrar a barra de sessões', alternarColuna));
   const botoesFerr = FERRAMENTAS.map(([id, ic, nome]) => el('button', {
     type: 'button', class: 'video-ferr', title: nome, 'aria-label': nome, 'aria-pressed': String(id === ferr), dados: { ferr: id }, onclick: () => escolherFerr(ferr === id ? 'selecao' : id),
   }, icone(ic)));
@@ -142,7 +141,9 @@ function montar(corpo) {
   const lista = el('ul', { class: 'video-lista' });
   const coluna = el('aside', { class: 'coluna video-sessoes', 'aria-label': 'Sessões de vídeo' },
     el('div', { class: 'coluna-topo' }, el('h2', {}, 'Sessões'),
-      el('button', { type: 'button', class: 'bt primario pequeno', onclick: () => novoVideo() }, icone('mais'), 'Novo vídeo')),
+      el('span', { class: 'lousa-coluna-acoes' },
+        el('button', { type: 'button', class: 'bt primario pequeno', onclick: () => novoVideo() }, icone('mais'), 'Novo vídeo'),
+        botaoIcone('lateralDireita', 'Recolher a barra de sessões', alternarColuna))),
     lista);
   corpo.append(palco, coluna);
 

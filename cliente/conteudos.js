@@ -36,7 +36,6 @@ function capa(item) {
 function montar(corpo) {
   let pasta = RAIZ; // pasta aberta (lembrada enquanto a página está carregada)
   let arrastando = 0;
-  const titulo = el('h2', {});
   const sub = el('p', { class: 'dica' });
   const trilha = el('nav', { class: 'trilha', 'aria-label': 'Trilha' });
   const voltar = el('button', { type: 'button', class: 'bt pequeno', hidden: true, onclick: () => ir(pasta.split('/').slice(0, -1).join('/')) }, icone('voltar'), 'Voltar');
@@ -45,7 +44,7 @@ function montar(corpo) {
   const camada = el('div', { class: 'camada-envio', hidden: true });
   corpo.classList.add('conteudos');
   corpo.append(el('div', { class: 'conteudos-topo' },
-    el('div', {}, trilha, titulo, sub),
+    el('div', {}, trilha, sub),
     el('div', { class: 'conteudos-acoes' }, voltar,
       el('button', { type: 'button', class: 'bt pequeno', onclick: novaPasta }, icone('pasta'), 'Nova pasta'),
       el('button', { type: 'button', class: 'bt primario pequeno', onclick: () => seletorArquivos.click() }, icone('enviar'), 'Enviar arquivos'), seletorArquivos)),
@@ -154,7 +153,7 @@ function montar(corpo) {
   async function pintar() {
     const { itens } = await api(`/api/conteudos/nivel?caminho=${encodeURIComponent(pasta)}`);
     const partes = pasta.split('/');
-    titulo.textContent = partes.length === 1 ? 'Conteúdos' : partes.at(-1);
+    trilha.hidden = partes.length === 1; // na raiz o título da janela já diz Conteúdos; dentro de uma pasta a trilha serve para voltar
     const pastas = itens.filter((i) => i.pasta);
     const arquivos = itens.filter((i) => !i.pasta);
     sub.textContent = `${pastas.length} pasta${pastas.length === 1 ? '' : 's'} · ${arquivos.length} arquivo${arquivos.length === 1 ? '' : 's'} · arraste um item para uma pasta para movê-lo`;
