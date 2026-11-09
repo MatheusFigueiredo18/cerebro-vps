@@ -7,6 +7,7 @@ import { enviarArquivos } from './envio.js';
 import * as shell from './shell.js';
 
 const RAIZ = 'conteudo';
+const celular = () => matchMedia('(max-width: 820px)').matches;
 
 // Torna um elemento arrastável: leva o caminho do arquivo para a área de trabalho das conversas (ou para uma pasta daqui).
 function arrastavel(no, caminho, dica) {
@@ -171,7 +172,11 @@ function montar(corpo) {
     const cartao = (i) => {
       const botao = el('button', {
         type: 'button', class: 'cartao-conteudo', title: i.nome,
-        onclick: () => { if (i.pasta) ir(i.caminho); else emitir('visor', { lista: todos, inicio: i.caminho }); },
+        onclick: () => {
+          if (i.pasta) ir(i.caminho);
+          else if (janela && celular() && shell.ativa()?.tipo === 'conversas') { emitir('conteudos-para-area', [i.caminho]); fecharJanela(); } // no celular não há arrastar: o toque leva o arquivo
+          else emitir('visor', { lista: todos, inicio: i.caminho });
+        },
       }, el('span', { class: 'cartao-capa' }, capa(i)), el('b', {}, i.nome),
       el('small', {}, [i.pasta ? `${i.arquivos} arquivo${i.arquivos === 1 ? '' : 's'}` : tamanhoLegivel(i.tamanho ?? 0), dataCurta(i.nome, i.mtime)].filter(Boolean).join(' · ')));
       const acoes = el('div', { class: 'cartao-acoes' },

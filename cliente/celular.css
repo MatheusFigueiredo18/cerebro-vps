@@ -23,6 +23,13 @@
   .dock-botao.ativo { transform: none; }
   .dock-traco { width: 1px; height: 34px; margin: 10px 4px; border-top: 0; border-left: 1px solid var(--linha); align-self: center; }
   .dock-fechar { display: grid; width: 22px; height: 22px; }
+  /* Favoritos e Funções repetem o dock: a lateral fica só com Arquivos e Busca */
+  .lateral-abas [data-aba="favoritos"], .lateral-abas [data-aba="funcoes"] { display: none; }
+  /* no Quadro a barra de cima do próprio quadro basta: a do caminho some e libera espaço */
+  body[data-guia="lousa"] { --barra: 0px; }
+  body[data-guia="lousa"] .caminho { display: none; }
+  /* botões do palco (zoom, centralizar, barra da direita) no alto à direita, longe das ferramentas de baixo */
+  .palco-acoes { top: 8px; bottom: auto; right: 8px; }
 
   /* ---------- telas comuns ---------- */
   .editor, .leitura, .banco, .config { padding-left: 14px; padding-right: 14px; }
@@ -30,7 +37,7 @@
   .guia-corpo.conversas { grid-template-columns: 1fr; grid-template-rows: 1fr; }
   .coluna { padding-bottom: 8px; }
   .aviso { bottom: calc(var(--dock-h) + 12px); }
-  .conteudos-janela { bottom: calc(var(--dock-h) + 8px); left: 8px; right: 8px; width: auto; }
+  .conteudos-janela { top: 0; bottom: var(--dock-h); left: 0; right: 0; width: auto; height: auto; transform: none; border-radius: 0; border-width: 0 0 1px; } /* tela cheia */
 
   /* ---------- Quadro ---------- */
   .guia-corpo.lousa-espaco { grid-template-columns: 1fr; }
@@ -75,11 +82,10 @@
   .lousa-filtros input, .lousa-filtros select { font-size: 16px; min-height: 38px; } /* 16 px: o iPhone não dá zoom ao tocar no campo */
 
   /* ---------- Criação de vídeo ---------- */
-  .video-ferramentas { left: 8px; bottom: 8px; }
+  .video-ferramentas { left: 8px; right: 8px; bottom: 8px; overflow-x: auto; scrollbar-width: none; }
   .video-ferr { width: 44px; height: 44px; touch-action: manipulation; }
   .video-cor { width: 28px; height: 28px; }
-  .palco-acoes { right: 8px; bottom: 8px; }
-  .video-nos { top: 8px; bottom: auto; left: 8px; right: 8px; transform: none; width: auto; max-width: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .video-nos { top: 60px; bottom: auto; left: 8px; right: 8px; transform: none; width: auto; max-width: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .video-no-chip { flex: none; min-height: 36px; }
   .video-nota-topo { height: 34px; }
   .video-nota-x { width: 32px; height: 32px; }

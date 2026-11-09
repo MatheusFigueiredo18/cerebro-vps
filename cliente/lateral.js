@@ -5,6 +5,7 @@ import { aplicarPrefs } from './personalizar.js';
 import * as shell from './shell.js';
 
 const ABAS = [['arquivos', 'Arquivos', 'pasta'], ['busca', 'Busca', 'busca'], ['favoritos', 'Favoritos', 'estrela'], ['funcoes', 'Funções', 'raio']];
+const SO_NO_COMPUTADOR = new Set(['favoritos', 'funcoes']); // no celular o dock de baixo já faz esse papel
 const ORDENS = [['nome', 'Nome (A a Z)'], ['nome-desc', 'Nome (Z a A)'], ['recentes', 'Mais recentes']];
 export const FUNCOES = [
   { id: 'conversas', nome: 'Conversas', icone: 'conversa', faz: 'Agentes de IA trabalhando no cérebro' },
@@ -237,7 +238,7 @@ function pintarFuncoes() {
 
 // ---------- abas ----------
 function mostrarAba(id) {
-  aba = ABAS.some((a) => a[0] === id) ? id : 'arquivos';
+  aba = ABAS.some((a) => a[0] === id) && !(SO_NO_COMPUTADOR.has(id) && matchMedia('(max-width: 820px)').matches) ? id : 'arquivos';
   guardar('lateralAba', aba);
   for (const b of partes.abas.querySelectorAll('[role="tab"]')) {
     const sel = b.dataset.aba === aba;

@@ -141,7 +141,9 @@ function montar(corpo) {
   const btGrade = bt('bt-icone pequeno', 'Ver em grade', 'grade', () => { vistaMod = 'grade'; pintarLista(); });
   const ul = el('ul', { class: 'lousa-lista' });
   const coluna = el('aside', { class: 'coluna lousa-coluna', 'aria-label': 'Quadros' },
-    el('div', { class: 'coluna-topo' }, el('h2', {}, 'Quadros'), el('button', { type: 'button', class: 'bt primario pequeno', onclick: () => novaLousa() }, icone('mais'), 'Novo')),
+    el('div', { class: 'coluna-topo' }, el('h2', {}, 'Quadros'), el('span', { class: 'lousa-coluna-acoes' },
+      el('button', { type: 'button', class: 'bt primario pequeno', onclick: () => novaLousa() }, icone('mais'), 'Novo'),
+      bt('bt-icone', 'Recolher a lista de quadros', 'lateralDireita', () => guardar('lousaColunaRecolhida', corpo.classList.add('sem-coluna') ?? true)))),
     el('div', { class: 'lousa-filtros' }, busca, ordem, btLista, btGrade), ul);
   corpo.append(palco, coluna);
 
@@ -260,19 +262,7 @@ function montar(corpo) {
     const a = paraTela(b.x, b.y); const z = paraTela(b.x + b.w, b.y + b.h);
     return { pts: [[a[0], a[1]], [z[0], a[1]], [z[0], z[1]], [a[0], z[1]]], rot: [(a[0] + z[0]) / 2, a[1] - (GROSSO ? 40 : 28)], x0: a[0], y0: a[1], x1: z[0] };
   }
-  // o X de excluir fica no canto de cima, à direita, de cada nota adesiva
-  const xDaNota = (o) => { const c = G.cantos(o)[1]; return paraTela(c[0], c[1]); };
-  function desenharXNotas() {
-    g.save(); g.setTransform(DPR, 0, 0, DPR, 0, 0); g.lineWidth = 1.6; g.lineCap = 'round';
-    for (const o of objs) {
-      if (o.t !== 'sticky' || o.lock) continue;
-      const [x, y] = xDaNota(o); const rb = GROSSO ? 13 : 9; const k = GROSSO ? 5 : 3.5; g.beginPath(); g.arc(x, y, rb, 0, Math.PI * 2); g.fillStyle = TH.quadro; g.fill(); g.strokeStyle = TH.mudo; g.stroke();
-      g.beginPath(); g.moveTo(x - k, y - k); g.lineTo(x + k, y + k); g.moveTo(x + k, y - k); g.lineTo(x - k, y + k); g.stroke();
-    }
-    g.restore();
-  }
   function sobreposicao(pid) {
-    desenharXNotas();
     g.save(); g.setTransform(DPR, 0, 0, DPR, 0, 0); g.lineWidth = 1.5; g.strokeStyle = TH.acento; g.fillStyle = TH.acento;
     if (hover) { const o = porIdFn(hover); if (o) { const b = G.limites(o, pid); const a = paraTela(b.x, b.y); g.setLineDash([5, 4]); g.strokeRect(a[0] - 3, a[1] - 3, b.w * cam.z + 6, b.h * cam.z + 6); g.setLineDash([]); } }
     if (!editando) {
@@ -512,6 +502,7 @@ function montar(corpo) {
     if (!cur) return;
     if (editando) fimEdicao(); fecharPop(); menu.hidden = true;
     const p = ptr(e); pontos.set(e.pointerId, p); tela.setPointerCapture(e.pointerId); toqueIni = { x: p[0], y: p[1], t: Date.now() };
+    clearTimeout(segurar); if (e.pointerType === 'touch' && pontos.size === 1 && (S.ferr === 'select' || S.ferr === 'hand')) segurar = setTimeout(() => { arrasto = null; abrirMenuDir(p); }, 550); // segurar o dedo = botão direito
     if (e.pointerType === 'touch' && pontos.size === 2) { const [a, b] = [...pontos.values()]; arrasto = { tipo: 'pinca', a0: { x: a[0], y: a[1] }, b0: { x: b[0], y: b[1] }, cam0: { ...cam } }; vivo = null; redesenhar(); return; }
     if (arrasto?.tipo === 'pinca') return;
     const w = paraMundo(p[0], p[1]); const t = S.ferr;
@@ -519,10 +510,6 @@ function montar(corpo) {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const pid = porId();
     if (t === 'select') {
-      for (let i = objs.length - 1; i >= 0; i--) { // X da nota adesiva: exclui na hora (Ctrl+Z volta)
-        const o = objs[i]; if (o.t !== 'sticky' || o.lock) continue;
-        const [x, y] = xDaNota(o); if (Math.hypot(p[0] - x, p[1] - y) < (GROSSO ? 20 : 11)) { S.sel = [o.id]; excluirSel(); return; }
-      }
       const al = alcaEm(p);
       if (al !== null) { const l = selObjs().filter((o) => !o.lock); const b = G.uniao(l, pid); arrasto = { tipo: al === 'rot' ? 'girar' : 'redim', al, caixa: b, snap: l.map((o) => [o, structuredClone(o)]), a0: Math.atan2(w[1] - (b.y + b.h / 2), w[0] - (b.x + b.w / 2)) }; return; }
       const o = G.escolher(objs, w[0], w[1], tol());
@@ -552,6 +539,7 @@ function montar(corpo) {
     const p = ptr(e); if (pontos.has(e.pointerId)) pontos.set(e.pointerId, p); const w = paraMundo(p[0], p[1]);
     if (arrasto?.tipo === 'pinca') { const v = [...pontos.values()]; if (v.length >= 2) { cam = pinca(arrasto.cam0, arrasto.a0, arrasto.b0, { x: v[0][0], y: v[0][1] }, { x: v[1][0], y: v[1][1] }, ...ZOOM); redesenhar(); } return; }
     ultimoPtr = p;
+    if (toqueIni && Math.hypot(p[0] - toqueIni.x, p[1] - toqueIni.y) > 10) clearTimeout(segurar);
     if (!arrasto) {
       if (S.ferr === 'select' && cur && !S.espaco) tela.style.cursor = alcaEm(p) !== null || G.escolher(objs, w[0], w[1], tol()) ? 'default' : 'grab'; // a mãozinha avisa que o fundo arrasta
       if (GRUPO_LINHAS.has(S.ferr)) { const h = G.ondePrender(objs, w[0], w[1], tol())?.id ?? null; if (h !== hover) { hover = h; redesenhar(); } } else if (hover) { hover = null; redesenhar(); }
@@ -583,7 +571,7 @@ function montar(corpo) {
     if (a.tipo === 'linha') { const l = a.o; const alvo = G.ondePrender(objs, w[0], w[1], tol()); hover = alvo && (!l.a || alvo.id !== l.a.id) ? alvo.id : null; l.x2 = w[0]; l.y2 = w[1]; l.b = hover ? { id: hover } : null; redesenhar(); }
   });
   function soltar(e) {
-    pontos.delete(e.pointerId);
+    clearTimeout(segurar); pontos.delete(e.pointerId);
     if (arrasto?.tipo === 'pinca') { if (pontos.size < 2) { arrasto = null; salvarSoon(); } return; }
     const a = arrasto; if (!a) return; arrasto = null; tela.style.cursor = CURSOR[S.ferr] ?? 'crosshair'; const p = ptr(e); const w = paraMundo(p[0], p[1]);
     if (e.pointerType === 'touch' && S.ferr === 'select' && toqueIni && Date.now() - toqueIni.t < 350 && Math.hypot(p[0] - toqueIni.x, p[1] - toqueIni.y) < 10) { // dois toques rápidos no mesmo lugar
@@ -608,13 +596,13 @@ function montar(corpo) {
     }
   }
   tela.addEventListener('pointerup', soltar);
-  tela.addEventListener('pointercancel', (e) => { pontos.delete(e.pointerId); if (arrasto?.tipo === 'pinca') arrasto = null; else if (arrasto?.tipo === 'desenhar') { vivo = null; arrasto = null; redesenhar(); } });
+  tela.addEventListener('pointercancel', (e) => { clearTimeout(segurar); pontos.delete(e.pointerId); if (arrasto?.tipo === 'pinca') arrasto = null; else if (arrasto?.tipo === 'desenhar') { vivo = null; arrasto = null; redesenhar(); } });
   function duploToque(p) {
     if (!cur || S.ferr !== 'select') return; const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
     if (o && G.ehCaixa(o)) iniciarEdicao(o); else if (!o) { const t = novoTexto(w[0], w[1]); objs.push(t); S.sel = [t.id]; iniciarEdicao(t); }
   }
   tela.addEventListener('dblclick', (e) => duploToque(ptr(e)));
-  let toqueIni = null; let ultimoToque = null;
+  let toqueIni = null; let ultimoToque = null; let segurar = 0;
   let ultimoPtr = null; // onde o mouse está sobre o quadro (o Ctrl+V cola ali)
 
   // ---------- colar da área de transferência (imagem, texto ou objetos copiados de outro quadro) ----------
@@ -687,10 +675,10 @@ function montar(corpo) {
   const menuDir = el('div', { class: 'lousa-menu lousa-menu-dir lousa-painel', role: 'menu', hidden: true });
   palco.append(menuDir, fundos);
   const fecharMenuDir = () => { menuDir.hidden = true; };
-  tela.addEventListener('contextmenu', (e) => {
-    e.preventDefault(); if (!cur) return;
+  tela.addEventListener('contextmenu', (e) => { e.preventDefault(); if (cur) abrirMenuDir(ptr(e)); });
+  function abrirMenuDir(p) {
     if (editando) fimEdicao();
-    const p = ptr(e); const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
+    const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
     if (o && !S.sel.includes(o.id)) { escolherFerr('select'); S.sel = G.idsDoGrupo(objs, o); pintarCtx(); redesenhar(); }
     const tem = S.sel.length > 0; const editavel = selObjs().some((x) => !x.lock);
     const itens = [['Colar', 'Ctrl+V', () => colarDaArea(w), true],
@@ -700,7 +688,7 @@ function montar(corpo) {
     menuDir.replaceChildren(...itens.filter((i) => i[3]).map(([nome, k, fn]) => el('button', { type: 'button', role: 'menuitem', onclick: () => { fecharMenuDir(); fn(); } }, el('span', {}, nome), el('kbd', {}, k))));
     menuDir.hidden = false;
     menuDir.style.left = `${Math.max(6, Math.min(p[0], W - menuDir.offsetWidth - 6))}px`; menuDir.style.top = `${Math.max(6, Math.min(p[1], H - menuDir.offsetHeight - 6))}px`;
-  });
+  }
 
   // ---------- barra contextual ----------
   function fecharPop() { pop.hidden = true; }
