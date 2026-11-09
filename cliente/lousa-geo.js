@@ -12,7 +12,7 @@ export const girar = (x, y, cx, cy, a) => {
   const c = Math.cos(a); const s = Math.sin(a); const dx = x - cx; const dy = y - cy;
   return [cx + dx * c - dy * s, cy + dx * s + dy * c];
 };
-export const ehCaixa = (o) => o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'frame' || o.t === 'image';
+export const ehCaixa = (o) => o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'frame' || o.t === 'image' || o.t === 'midia';
 export const centro = (o) => [o.x + o.w / 2, o.y + o.h / 2];
 export const porIdDe = (objs) => { const m = new Map(objs.map((o) => [o.id, o])); return (id) => m.get(id) ?? null; };
 export const linhasDoTexto = (o) => String(o.text ?? '').split('\n').length;
@@ -100,7 +100,7 @@ export function escolher(objs, x, y, tol) {
 }
 export function ondePrender(objs, x, y, tol) { // em quê uma seta pode se prender
   const porId = porIdDe(objs);
-  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if ((o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'image') && acertou(o, x, y, tol, porId)) return o; }
+  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if ((o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'image' || o.t === 'midia') && acertou(o, x, y, tol, porId)) return o; }
   return null;
 }
 export const idsDoGrupo = (objs, o) => (o.g ? objs.filter((x) => x.g === o.g).map((x) => x.id) : [o.id]);

@@ -1,11 +1,10 @@
-// Trilho vertical à esquerda: Grafo, as Funções (respeita ordem, fixos e ocultos) e, abaixo de um traço, as páginas abertas.
+// Trilho vertical à esquerda: Grafo, as Funções (respeita ordem, fixos e ocultos), o Cérebro (abre e fecha a lateral de arquivos) e, abaixo de um traço, as páginas abertas.
 // Ao clicar, o botão "suspende" (sobe com brilho) e o conteúdo entra (ver .entra no CSS).
 import { $, el, icone, ouvir, emitir } from './comum.js';
 import { FUNCOES, abrirFuncao } from './lateral.js';
 import * as shell from './shell.js';
 
 let caixa = null;
-let janelaAberta = false; // a janela de Conteúdos não é uma guia: o botão acende enquanto ela está aberta
 
 const botao = (nome, ic, ligado, aoClicar, extra = {}) => el('button', {
   type: 'button', class: `dock-botao${ligado ? ' ativo' : ''}`, title: extra.dica ?? nome, 'aria-label': nome,
@@ -17,10 +16,7 @@ function pintar() {
   const ativa = shell.ativa();
   const ids = new Set(FUNCOES.map((f) => f.id));
   const itens = [el('div', { class: 'dock-marca', 'aria-hidden': 'true' }, icone('cerebro')), botao('Grafo', 'grafo', ativa?.id === 'grafo', () => shell.ir('grafo'))];
-  for (const f of FUNCOES) {
-    const ligado = f.id === 'conteudos' ? janelaAberta : ativa?.tipo === f.id;
-    itens.push(botao(f.nome, f.icone, ligado, () => abrirFuncao(f.id)));
-  }
+  for (const f of FUNCOES) itens.push(botao(f.nome, f.icone, ativa?.tipo === f.id, () => abrirFuncao(f.id)));
   itens.push(botao('Cérebro', 'cerebro', !document.body.classList.contains('sem-lateral'), () => emitir('lateral-alternar'), { dica: 'Arquivos do cérebro' }));
   const paginas = shell.guias().filter((g) => g.id !== 'grafo' && !ids.has(g.tipo));
   if (paginas.length) {
@@ -41,6 +37,5 @@ export function iniciar() {
   ouvir('guia-ativa', pintar);
   ouvir('guias-mudou', pintar);
   ouvir('lateral-mudou', pintar);
-  ouvir('conteudos-janela', (d) => { janelaAberta = !!d?.aberta; pintar(); });
   pintar();
 }

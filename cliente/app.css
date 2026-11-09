@@ -750,6 +750,10 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-palco.desenhando .video-no, .video-palco.desenhando .video-nota { pointer-events: none; }
 .video-palco[data-ferr="borracha"] { cursor: cell; }
 .video-palco[data-ferr="tesoura"] .ligacao-alvo { cursor: crosshair; }
+.palco.desenhando { cursor: crosshair; }
+.palco.desenhando :is(.video-no, .video-nota, .card) { pointer-events: none; }
+.palco[data-ferr="borracha"] { cursor: cell; }
+.video-ferr-traco { width: 1px; height: 22px; margin: 0 3px; background: var(--linha); flex: none; }
 
 /* fundo pontilhado em toda a área de trabalho das Funções (o que fica atrás das caixas); notas e bancos continuam lisos para ler */
 .area { background-color: var(--fundo); background-image: radial-gradient(circle, var(--linha) 1.1px, transparent 1.2px); background-size: 24px 24px; }

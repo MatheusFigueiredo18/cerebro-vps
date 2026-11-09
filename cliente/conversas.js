@@ -9,6 +9,8 @@ import { enviarArquivos } from './envio.js';
 import { renderizar, urlArquivo } from './markdown.js';
 import * as shell from './shell.js';
 import { abrirFuncao } from './lateral.js';
+import { abrirJanela } from './conteudos.js';
+import { criarDesenho } from './desenho.js';
 
 const CONSULTA_MS = 2000;
 const ZOOM = [0.2, 2];
@@ -372,6 +374,7 @@ function pintarEspaco() {
   if (!Array.isArray(espaco.anexos)) espaco.anexos = []; // arquivos soltos nesta área de trabalho
   if (!Array.isArray(espaco.links)) espaco.links = []; // ligações feitas pelas bolinhas: { a, b } com ids de cards
   if (!Array.isArray(espaco.filhas)) espaco.filhas = []; // conversas abertas a partir do prompt desta
+  ui.desenho.carregar(); // traços e notas adesivas desta área de trabalho (espaco.tracos e espaco.notas)
   const c = conversa(ativa);
   if (!c) {
     const b = criarCard('boas-vindas', { x: 0, y: 0, ...BOAS_VINDAS }, { icone: 'robo', titulo: 'Bem-vindo', sub: 'Mesa' });
@@ -683,7 +686,15 @@ function montar(corpo) {
   corpo.classList.add('conversas');
   corpo.classList.toggle('sem-coluna', ler('colunaRecolhida', false) === true);
   corpo.append(palco, coluna, seletor);
-  ui = { palco, mundo, ligacoes, alcas, zoom, lista: listaEl, comece, seletor };
+  // desenho livre, notas adesivas e borracha (desenho.js), guardados no espaço desta conversa; o "+" abre Conteúdos
+  const desenho = criarDesenho({
+    mundo, palco, alvo: () => espaco,
+    paraMundo: (cx, cy) => { const r = palco.getBoundingClientRect(); const c = espaco.cam ?? { x: 0, y: 0, z: 1 }; return { x: (cx - r.left - c.x) / c.z, y: (cy - r.top - c.y) / c.z }; },
+    zoom: () => espaco.cam?.z ?? 1, salvar: salvarEspaco, proximoZ: () => ++topoZ,
+    adicionar: () => { abrirJanela(); avisar('Arraste uma imagem ou um vídeo de Conteúdos para a área de trabalho.'); },
+  });
+  palco.append(desenho.barra);
+  ui = { palco, mundo, ligacoes, alcas, zoom, lista: listaEl, comece, seletor, desenho };
 
   // câmera: arrastar o fundo desloca; rolar desloca; Ctrl ou Cmd mais rolagem dá zoom no ponteiro
   // pinça com dois dedos (celular): aproxima e afasta ao redor do ponto entre os dedos
@@ -710,7 +721,8 @@ function montar(corpo) {
   palco.addEventListener('pointercancel', largarDedo, true);
 
   palco.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || !espaco.cam || pinca0 || dedos.size > 1 || e.target.closest('.card, .palco-acoes')) return;
+    if (e.button !== 0 || !espaco.cam || pinca0 || dedos.size > 1 || e.target.closest('.card, .palco-acoes, .video-ferramentas, .video-nota')) return;
+    if (desenho.ferramenta()) { desenho.usar(e); return; }
     const ini = { x: e.clientX, y: e.clientY, cx: espaco.cam.x, cy: espaco.cam.y };
     pan = ini;
     palco.setPointerCapture(e.pointerId);
