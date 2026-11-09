@@ -100,7 +100,7 @@ export function escolher(objs, x, y, tol) {
 }
 export function ondePrender(objs, x, y, tol) { // em quê uma seta pode se prender
   const porId = porIdDe(objs);
-  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if ((o.t === 'shape' || o.t === 'sticky' || o.t === 'text') && acertou(o, x, y, tol, porId)) return o; }
+  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if ((o.t === 'shape' || o.t === 'sticky' || o.t === 'text' || o.t === 'midia') && acertou(o, x, y, tol, porId)) return o; }
   return null;
 }
 export const idsDoGrupo = (objs, o) => (o.g ? objs.filter((x) => x.g === o.g).map((x) => x.id) : [o.id]);

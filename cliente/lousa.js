@@ -1,7 +1,13 @@
 // Função Lousas: quadro infinito de desenho livre, post-its, formas e setas, com salvamento automático no servidor.
 // A geometria (seleção, formas, borrachas, transformações) fica em lousa-geo.js e a câmera em camera.js; aqui ficam a tela,
 // o teclado e a conversa com a API (/api/lousas). Cada lousa é um arquivo JSON na pasta de dados; nada é apagado.
-import { el, icone, api, ler, guardar, avisar, ouvir } from './comum.js';
+// Imagens e vídeos de Conteúdos entram como objeto 'midia' (o "+" abre a galeria; arraste para o quadro). O vídeo aparece pela capa.
+import { el, icone, api, ler, guardar, avisar, ouvir, emitir } from './comum.js';
+import { abrirJanela } from './conteudos.js';
+import { caminhosDoArrasto, arrastoTemArquivos } from './anexos.js';
+import { enviarArquivos } from './envio.js';
+import { tipoArquivo } from './formatos.js';
+import { urlArquivo } from './markdown.js';
 import { zoomEm, enquadrar, pinca } from './camera.js';
 import * as G from './lousa-geo.js';
 import * as shell from './shell.js';
@@ -202,12 +208,52 @@ function montar(corpo) {
       if (o.t === 'shape') { formaCaminho(c, o); if (o.f) { c.fillStyle = cor(o.f); c.fill(); } c.strokeStyle = cor(o.c); c.lineWidth = o.s; c.stroke(); if (!semTexto) bloco(c, o.text, 8, 0, o.w - 16, o.h, o.fs, cor(o.c), 'center', true); }
       else if (o.t === 'sticky') { c.shadowColor = 'rgba(0,0,0,.22)'; c.shadowBlur = 10; c.shadowOffsetY = 3; c.fillStyle = o.f; c.fillRect(0, 0, o.w, o.h); c.shadowColor = 'transparent'; if (!semTexto) bloco(c, o.text, 12, 0, o.w - 24, o.h, fsPostit(c, o), '#1d1d1b', 'center', true); }
       else if (o.t === 'text') { if (!semTexto) bloco(c, o.text, 0, 0, 1e5, o.h, o.fs, cor(o.c), 'left', false); }
+      else if (o.t === 'midia') desenharMidia(c, o, z);
       else if (o.t === 'frame') {
         c.fillStyle = TH.quadro; c.fillRect(0, 0, o.w, o.h); c.strokeStyle = TH.grade; c.lineWidth = 1 / z; c.strokeRect(0, 0, o.w, o.h);
         if (!semTexto) { c.font = `${14 / z}px system-ui, sans-serif`; c.fillStyle = TH.mudo; c.textBaseline = 'bottom'; c.textAlign = 'left'; c.fillText(o.title || 'Moldura', 0, -6 / z); }
       }
     }
     c.restore();
+  }
+  // imagens e capas de vídeo: carregam uma vez e redesenham o quadro quando chegam
+  const imagens = new Map(); // url -> HTMLImageElement
+  const urlMidia = (o) => (o.v ? `/api/capa?caminho=${encodeURIComponent(o.src)}` : urlArquivo(o.src));
+  function imagemDe(o) {
+    const u = urlMidia(o);
+    let im = imagens.get(u);
+    if (!im) { im = new Image(); im.onload = () => redesenhar(); im.onerror = () => { im.falhou = true; redesenhar(); }; im.src = u; imagens.set(u, im); }
+    return im;
+  }
+  function desenharMidia(c, o, z) {
+    const im = imagemDe(o);
+    if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, o.w, o.h);
+    else {
+      c.fillStyle = TH.grade; c.fillRect(0, 0, o.w, o.h);
+      c.fillStyle = TH.mudo; c.font = `${13 / Math.max(z, 0.3)}px system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(im.falhou ? 'Arquivo não encontrado' : 'Carregando…', o.w / 2, o.h / 2);
+    }
+    if (o.v) { // selo de play no meio: dois cliques abrem o vídeo no visor
+      const r = Math.min(28, o.w / 6, o.h / 6); c.fillStyle = 'rgba(0,0,0,.55)'; c.beginPath(); c.arc(o.w / 2, o.h / 2, r, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.moveTo(o.w / 2 - r * 0.35, o.h / 2 - r * 0.5); c.lineTo(o.w / 2 + r * 0.55, o.h / 2); c.lineTo(o.w / 2 - r * 0.35, o.h / 2 + r * 0.5); c.closePath(); c.fill();
+    }
+  }
+  // põe imagens e vídeos do cérebro no quadro, a partir do ponto (local da tela), já no tamanho certo
+  async function adicionarMidias(caminhos, sx, sy) {
+    const midias = caminhos.filter((c) => ['imagem', 'video'].includes(tipoArquivo(c)));
+    if (caminhos.length > midias.length) avisar('Só imagem ou vídeo entra no quadro; os outros arquivos foram ignorados.');
+    if (!cur || !midias.length) return;
+    const w0 = paraMundo(sx, sy); const novos = [];
+    for (const [i, src] of midias.entries()) {
+      const o = { id: uid(), t: 'midia', src, v: tipoArquivo(src) === 'video', x: 0, y: 0, w: 320, h: 180, r: 0 };
+      const im = imagemDe(o);
+      await new Promise((ok) => { if (im.complete) ok(); else { im.addEventListener('load', ok, { once: true }); im.addEventListener('error', ok, { once: true }); } });
+      if (im.naturalWidth) { const k = Math.min(1, 360 / Math.max(im.naturalWidth, im.naturalHeight)) / cam.z; o.w = Math.round(im.naturalWidth * k); o.h = Math.round(im.naturalHeight * k); }
+      else { o.w /= cam.z; o.h /= cam.z; }
+      o.x = w0[0] - o.w / 2 + (i * 24) / cam.z; o.y = w0[1] - o.h / 2 + (i * 24) / cam.z;
+      novos.push(o);
+    }
+    objs.push(...novos); escolherFerr('select'); S.sel = novos.map((o) => o.id); foto(); pintarCtx(); redesenhar();
   }
   function pontilhado() {
     const sp = 32 * cam.z; if (sp < 9) return;
@@ -370,9 +416,26 @@ function montar(corpo) {
   titulo.addEventListener('input', () => { if (cur) { cur.titulo = titulo.value; const it = lista.find((l) => l.id === cur.id); if (it) it.titulo = titulo.value; salvarSoon(); } });
   titulo.addEventListener('keydown', (e) => { if (e.key === 'Enter') titulo.blur(); e.stopPropagation(); });
 
+  // ---------- soltar imagens e vídeos (da janela de Conteúdos ou do computador) ----------
+  palco.addEventListener('dragover', (e) => {
+    if (!cur || !arrastoTemArquivos(e.dataTransfer)) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; palco.classList.add('alvo-solta');
+  });
+  palco.addEventListener('dragleave', (e) => { if (!palco.contains(e.relatedTarget)) palco.classList.remove('alvo-solta'); });
+  palco.addEventListener('drop', async (e) => {
+    if (!cur || !arrastoTemArquivos(e.dataTransfer)) return;
+    e.preventDefault(); palco.classList.remove('alvo-solta'); document.body.classList.remove('arrastando-arquivo');
+    const caminhos = caminhosDoArrasto(e.dataTransfer);
+    const arquivos = caminhos.length ? [] : [...(e.dataTransfer.files ?? [])]; // ler antes de qualquer await
+    const [sx, sy] = ptr(e);
+    try { if (arquivos.length) caminhos.push(...await enviarArquivos(arquivos)); } catch (err) { avisar(err.message, 'erro'); return; }
+    adicionarMidias(caminhos, sx, sy);
+  });
+
   // ---------- barra de ferramentas ----------
   function montarBarra() {
-    barra.replaceChildren(...FERRAMENTAS.map((f) => (f === '-' ? el('div', { class: 'lousa-sep' }) : el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], 'aria-pressed': 'false', dados: { f: f[0] },
+    const mais = bt('lousa-bt', 'Adicionar imagem ou vídeo (abre Conteúdos)', 'mais', () => { abrirJanela(); avisar('Arraste uma imagem ou um vídeo de Conteúdos para o quadro.'); });
+    barra.replaceChildren(mais, el('div', { class: 'lousa-sep' }), ...FERRAMENTAS.map((f) => (f === '-' ? el('div', { class: 'lousa-sep' }) : el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], 'aria-pressed': 'false', dados: { f: f[0] },
       onclick: () => escolherFerr(f[0] === 'formas' ? S.ultimaForma ?? 'rect' : f[0] === 'linhas' ? S.ultimaLinha ?? 'arrow' : f[0]) }, icone(f[1])))));
     for (const [gav, itens] of [[gavetaFormas, FORMAS], [gavetaLinhas, LINHAS]]) gav.replaceChildren(...itens.map((f) => el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], dados: { f: f[0] }, onclick: () => escolherFerr(f[0]) }, icone(f[1]))));
     btnGrade.classList.toggle('ligado', S.grade); btnMini.classList.toggle('ligado', S.mini); mini.style.display = S.mini ? 'block' : 'none';
@@ -524,7 +587,7 @@ function montar(corpo) {
     if (a.tipo === 'redim') {
       const b = a.caixa; const i = a.al; const ox = i === 0 || i === 3 ? b.x + b.w : b.x; const oy = i === 0 || i === 1 ? b.y + b.h : b.y; const hx = i === 0 || i === 3 ? b.x : b.x + b.w; const hy = i === 0 || i === 1 ? b.y : b.y + b.h;
       let sx = Math.max(0.05, (w[0] - ox) / (hx - ox || 1)); let sy = Math.max(0.05, (w[1] - oy) / (hy - oy || 1));
-      if (e.shiftKey || a.snap.some(([o]) => o.t === 'stroke' || o.t === 'line' || o.t === 'sticky')) sx = sy = Math.max(sx, sy);
+      if (e.shiftKey || a.snap.some(([o]) => o.t === 'stroke' || o.t === 'line' || o.t === 'sticky' || o.t === 'midia')) sx = sy = Math.max(sx, sy);
       for (const [o, s] of a.snap) Object.assign(o, G.escalado(s, ox, oy, sx, sy, pid)); redesenhar(); return;
     }
     if (a.tipo === 'girar') { const b = a.caixa; const cx = b.x + b.w / 2; const cy = b.y + b.h / 2; let da = Math.atan2(w[1] - cy, w[0] - cx) - a.a0; if (e.shiftKey) da = Math.round(da / (Math.PI / 12)) * (Math.PI / 12); for (const [o, s] of a.snap) Object.assign(o, G.girado(s, cx, cy, da, pid)); redesenhar(); return; }
@@ -563,6 +626,7 @@ function montar(corpo) {
   tela.addEventListener('pointercancel', (e) => { pontos.delete(e.pointerId); if (arrasto?.tipo === 'pinca') arrasto = null; else if (arrasto?.tipo === 'desenhar') { vivo = null; arrasto = null; redesenhar(); } });
   function duploToque(p) {
     if (!cur || S.ferr !== 'select') return; const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
+    if (o?.t === 'midia') { emitir('visor', { lista: [o.src], inicio: o.src }); return; }
     if (o && G.ehCaixa(o)) iniciarEdicao(o); else if (!o) { const t = novoTexto(w[0], w[1]); objs.push(t); S.sel = [t.id]; iniciarEdicao(t); }
   }
   tela.addEventListener('dblclick', (e) => duploToque(ptr(e)));

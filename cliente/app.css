@@ -722,9 +722,10 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-nota-x { color: #1d1d1b; opacity: .7; }
 .video-nota-x:hover:not(:disabled) { opacity: 1; background: rgb(0 0 0 / .12); color: #1d1d1b; }
 .video-nota-texto { flex: 1; min-height: 0; resize: none; border: 0; background: transparent; color: inherit; font: inherit; padding: 2px 10px 10px; outline: none; }
-.video-palco.desenhando { cursor: crosshair; }
-.video-palco.desenhando .video-no, .video-palco.desenhando .video-nota { pointer-events: none; }
-.video-palco[data-ferr="borracha"] { cursor: cell; }
+.palco.desenhando { cursor: crosshair; }
+.palco.desenhando :is(.video-no, .video-nota, .card) { pointer-events: none; }
+.palco[data-ferr="borracha"] { cursor: cell; }
+.video-ferr-traco { width: 1px; height: 22px; margin: 0 3px; background: var(--linha); flex: none; }
 
 /* fundo pontilhado em toda a área de trabalho das Funções (o que fica atrás das caixas); notas e bancos continuam lisos para ler */
 .area { background-color: var(--fundo); background-image: radial-gradient(circle, var(--linha) 1.1px, transparent 1.2px); background-size: 24px 24px; }

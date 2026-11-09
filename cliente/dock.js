@@ -6,7 +6,6 @@ import { aplicarPrefs } from './personalizar.js';
 import * as shell from './shell.js';
 
 let caixa = null;
-let janelaAberta = false; // a janela de Conteúdos não é uma guia: o botão acende enquanto ela está aberta
 
 const botao = (nome, ic, ligado, aoClicar, extra = {}) => el('button', {
   type: 'button', class: `dock-botao${ligado ? ' ativo' : ''}`, title: extra.dica ?? nome, 'aria-label': nome,
@@ -20,8 +19,7 @@ function pintar() {
   const ids = new Set(FUNCOES.map((f) => f.id));
   const itens = [botao('Grafo', 'grafo', ativa?.id === 'grafo', () => shell.ir('grafo'))];
   for (const f of aplicarPrefs(FUNCOES, prefs)) {
-    const ligado = f.id === 'conteudos' ? janelaAberta : ativa?.tipo === f.id;
-    itens.push(botao(f.nome, f.icone, ligado, () => abrirFuncao(f.id)));
+    itens.push(botao(f.nome, f.icone, ativa?.tipo === f.id, () => abrirFuncao(f.id)));
   }
   const lateralAberta = !document.body.classList.contains('sem-lateral');
   itens.push(botao('Cérebro', 'cerebro', lateralAberta, () => emitir('lateral-alternar'), { dica: lateralAberta ? 'Esconder os arquivos do cérebro' : 'Mostrar os arquivos do cérebro' }));
@@ -45,6 +43,5 @@ export function iniciar() {
   ouvir('guias-mudou', pintar);
   ouvir('funcoes-mudou', pintar);
   ouvir('lateral-mudou', pintar);
-  ouvir('conteudos-janela', (d) => { janelaAberta = !!d?.aberta; pintar(); });
   pintar();
 }

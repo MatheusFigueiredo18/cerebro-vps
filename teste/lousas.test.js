@@ -71,6 +71,12 @@ test('lousas: objetos inválidos são recusados', () => {
   assert.throws(() => validarObjetos([{ id: 'a', t: 'text', text: 'x'.repeat(20001) }]), /texto/);
   assert.throws(() => validarObjetos(Array.from({ length: 20001 }, (_, i) => ({ id: String(i), t: 'text' }))), /grande demais/);
   assert.doesNotThrow(() => validarObjetos([traco(), postit(), { id: 'l', t: 'line', k: 'arrow', x1: 0, y1: 0, x2: 5, y2: 5, a: { id: 's1' }, b: null }]));
+  // imagem ou vídeo do cérebro: caminho relativo, sem sair da pasta
+  assert.doesNotThrow(() => validarObjetos([{ id: 'm', t: 'midia', src: 'conteudo/enviados/foto.png', v: false, x: 0, y: 0, w: 320, h: 180, r: 0 }]));
+  for (const src of ['', '/etc/passwd', '../fora.png', 'conteudo/../../fora.png', 'conteudo\\..\\fora.png', 7]) {
+    assert.throws(() => validarObjetos([{ id: 'm', t: 'midia', src, x: 0, y: 0, w: 1, h: 1 }]), /arquivo/);
+  }
+  assert.throws(() => validarObjetos([{ id: 'm', t: 'midia', src: 'a.png', v: 'sim', x: 0, y: 0, w: 1, h: 1 }]), /vídeo/);
 });
 
 test('lousas: id fora do padrão nunca toca o disco (sem travessia de pasta)', () => {

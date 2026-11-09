@@ -11,12 +11,9 @@ import { zoomEm, enquadrar } from './camera.js';
 import { caminhosDoArrasto, arrastoTemArquivos } from './anexos.js';
 import { enviarArquivos } from './envio.js';
 import * as shell from './shell.js';
-import * as G from './lousa-geo.js';
+import { criarDesenho } from './desenho.js';
 
 const ZOOM = [0.2, 2];
-const FERRAMENTAS = [['caneta', 'caneta', 'Desenho livre'], ['nota', 'postit', 'Nota adesiva'], ['borracha', 'borracha', 'Borracha: apaga o traço inteiro']];
-const CORES_TRACO = [['ink', 'Tinta'], ['#E2553B', 'Vermelho'], ['#E3A008', 'Amarelo'], ['#2F6FEB', 'Azul'], ['#0F8F6E', 'Verde']];
-const COR_NOTA = '#FFE066';
 const CAB = 20; // altura do ponto das portas, a partir do topo do card
 
 // saida/entradas usam tipos de ligação: midia (vídeo ou imagem), lista, texto, video
@@ -83,13 +80,6 @@ function montar(corpo) {
   ligacoes.setAttribute('class', 'ligacoes');
   ligacoes.setAttribute('aria-hidden', 'true');
   mundo.append(ligacoes);
-  const tracosSvg = document.createElementNS(SVG, 'svg'); // desenho livre: por cima de tudo, sem pegar o mouse
-  tracosSvg.setAttribute('class', 'video-tracos');
-  tracosSvg.setAttribute('aria-hidden', 'true');
-  mundo.append(tracosSvg);
-  let ferr = null; // caneta, nota ou borracha (ou nenhuma)
-  let corTraco = 'ink';
-  const notas = new Map(); // id da nota -> elemento
   const vazio = el('div', { class: 'video-vazio' });
   const botoesNos = Object.entries(TIPOS).map(([tipo, t]) => el('button', {
     type: 'button', class: `video-no-chip${t.opcional ? ' c-opc' : ''}`, title: t.faz, onclick: () => adicionar(tipo),
@@ -103,16 +93,13 @@ function montar(corpo) {
     botaoIcone('lateralDireita', 'Recolher ou mostrar a barra de sessões', () => {
       guardar('videoColunaRecolhida', corpo.classList.toggle('sem-coluna'));
     }));
-  const botoesFerr = FERRAMENTAS.map(([id, ic, nome]) => el('button', {
-    type: 'button', class: 'video-ferr', title: nome, 'aria-label': nome, 'aria-pressed': 'false', dados: { ferr: id }, onclick: () => escolherFerr(ferr === id ? null : id),
-  }, icone(ic)));
-  const botoesCor = CORES_TRACO.map(([c, nome]) => el('button', {
-    type: 'button', class: 'video-cor', title: nome, 'aria-label': `Cor: ${nome}`, 'aria-pressed': String(c === corTraco), dados: { cor: c },
-    style: `background:${c === 'ink' ? 'var(--texto)' : c}`, onclick: () => { corTraco = c; for (const b of botoesCor) b.setAttribute('aria-pressed', String(b.dataset.cor === c)); },
-  }));
-  const barraCores = el('div', { class: 'video-cores', hidden: true }, botoesCor);
-  const barraFerr = el('div', { class: 'video-ferramentas', role: 'toolbar', 'aria-label': 'Desenho, notas e borracha' }, botoesFerr, barraCores);
-  const palco = el('div', { class: 'palco video-palco' }, mundo, vazio, barraNos, zoomIndicador, acoes, barraFerr);
+  const palco = el('div', { class: 'palco video-palco' }, mundo, vazio, barraNos, zoomIndicador, acoes);
+  // desenho livre, notas adesivas e borracha (desenho.js): traços e notas ficam no grafo da sessão
+  const desenho = criarDesenho({
+    mundo, palco, alvo: () => grafo, paraMundo: (x, y) => paraMundo(x, y), zoom: () => grafo.cam.z,
+    salvar: () => salvarGrafo(), proximoZ: () => ++topoZ, aoMudar: () => pintarVazio(),
+  });
+  palco.append(desenho.barra);
 
   const lista = el('ul', { class: 'video-lista' });
   const coluna = el('aside', { class: 'coluna video-sessoes', 'aria-label': 'Sessões de vídeo' },
@@ -226,9 +213,7 @@ function montar(corpo) {
   // ---------- nós ----------
   function carregarGrafo(g) {
     for (const c of cards.values()) c.el.remove();
-    for (const n of notas.values()) n.remove();
     cards = new Map();
-    notas.clear();
     ligacoes.replaceChildren();
     grafo = g ?? { cam: null, nos: [], links: [] };
     if (!grafo.cam) grafo.cam = { x: 40, y: 80, z: 1 };
@@ -237,126 +222,12 @@ function montar(corpo) {
     if (!Array.isArray(grafo.tracos)) grafo.tracos = [];
     if (!Array.isArray(grafo.notas)) grafo.notas = [];
     grafo.nos.forEach(pintarNo);
-    grafo.notas.forEach(pintarNota);
-    pintarTracos();
+    desenho.carregar();
     aplicarCam();
     pintarLigacoes();
     pintarVazio();
   }
 
-  // ---------- desenho livre, notas adesivas e borracha ----------
-  const caminhoSvg = (p) => {
-    if (p.length === 1) return `M${p[0][0]} ${p[0][1]} l0.01 0`;
-    let d = `M${p[0][0]} ${p[0][1]}`;
-    for (let i = 1; i < p.length - 1; i++) d += ` Q${p[i][0]} ${p[i][1]} ${(p[i][0] + p[i + 1][0]) / 2} ${(p[i][1] + p[i + 1][1]) / 2}`;
-    return `${d} L${p.at(-1)[0]} ${p.at(-1)[1]}`;
-  };
-  function elementoTraco(t) {
-    const p = document.createElementNS(SVG, 'path');
-    p.setAttribute('d', caminhoSvg(t.p));
-    p.setAttribute('class', 'video-traco');
-    p.style.stroke = t.c === 'ink' ? 'var(--texto)' : t.c;
-    p.style.strokeWidth = String(t.s);
-    return p;
-  }
-  function pintarTracos() { tracosSvg.replaceChildren(...grafo.tracos.map(elementoTraco)); }
-
-  function pintarNota(n) {
-    let t;
-    const area = el('textarea', { class: 'video-nota-texto', placeholder: 'Escreva aqui…', 'aria-label': 'Nota adesiva', rows: 4 });
-    area.value = n.texto ?? '';
-    area.addEventListener('input', () => { n.texto = area.value; clearTimeout(t); t = setTimeout(salvarGrafo, 400); });
-    area.addEventListener('pointerdown', (e) => e.stopPropagation());
-    const topo = el('div', { class: 'video-nota-topo' }, botaoIcone('x', 'Excluir nota', () => removerNota(n.id), 'pequeno video-nota-x'));
-    const c = el('div', { class: 'video-nota', dados: { nota: n.id } }, topo, area);
-    Object.assign(c.style, { left: `${n.x}px`, top: `${n.y}px`, width: `${n.w}px`, height: `${n.h}px`, background: n.cor ?? COR_NOTA, zIndex: String(++topoZ) });
-    c.addEventListener('pointerdown', () => { c.style.zIndex = String(++topoZ); });
-    topo.addEventListener('pointerdown', (e) => arrastarNota(e, n, c));
-    mundo.append(c);
-    notas.set(n.id, c);
-    return area;
-  }
-  function removerNota(id) {
-    grafo.notas = grafo.notas.filter((n) => n.id !== id);
-    notas.get(id)?.remove();
-    notas.delete(id);
-    pintarVazio();
-    salvarGrafo();
-  }
-  function arrastarNota(e, n, c) {
-    if (e.button !== 0 || e.target.closest('button')) return;
-    const ini = { x: e.clientX, y: e.clientY, nx: n.x, ny: n.y };
-    e.preventDefault();
-    e.stopPropagation();
-    const topo = e.currentTarget;
-    topo.setPointerCapture(e.pointerId);
-    const mover = (m) => { n.x = Math.round(ini.nx + (m.clientX - ini.x) / grafo.cam.z); n.y = Math.round(ini.ny + (m.clientY - ini.y) / grafo.cam.z); c.style.left = `${n.x}px`; c.style.top = `${n.y}px`; };
-    const soltar = () => { topo.removeEventListener('pointermove', mover); salvarGrafo(); };
-    topo.addEventListener('pointermove', mover);
-    topo.addEventListener('pointerup', soltar, { once: true });
-    topo.addEventListener('pointercancel', soltar, { once: true });
-  }
-
-  function escolherFerr(f) {
-    ferr = f;
-    for (const b of botoesFerr) b.setAttribute('aria-pressed', String(b.dataset.ferr === f));
-    barraCores.hidden = f !== 'caneta';
-    palco.classList.toggle('desenhando', !!f);
-    palco.dataset.ferr = f ?? '';
-  }
-
-  // usa a ferramenta escolhida no ponto clicado; devolve true se tratou o gesto
-  function usarFerramenta(e) {
-    e.preventDefault();
-    const p = paraMundo(e.clientX, e.clientY);
-    if (ferr === 'nota') {
-      const n = { id: crypto.randomUUID(), x: Math.round(p.x - 80), y: Math.round(p.y - 60), w: 170, h: 150, cor: COR_NOTA, texto: '' };
-      grafo.notas.push(n);
-      const area = pintarNota(n);
-      escolherFerr(null);
-      pintarVazio();
-      salvarGrafo();
-      setTimeout(() => area.focus(), 0);
-      return;
-    }
-    palco.setPointerCapture(e.pointerId);
-    if (ferr === 'caneta') {
-      const traco = { id: crypto.randomUUID(), t: 'stroke', tool: 'pen', c: corTraco, s: Math.max(2, 3 / grafo.cam.z), p: [[p.x, p.y]] };
-      const vivo = elementoTraco(traco);
-      tracosSvg.append(vivo);
-      const mover = (m) => { const q = paraMundo(m.clientX, m.clientY); traco.p.push([q.x, q.y]); vivo.setAttribute('d', caminhoSvg(traco.p)); };
-      const soltar = () => {
-        palco.removeEventListener('pointermove', mover);
-        if (traco.p.length < 2) traco.p.push([traco.p[0][0] + 0.01, traco.p[0][1]]);
-        traco.p = G.densificar(traco.p, 3);
-        grafo.tracos.push(traco);
-        pintarTracos();
-        pintarVazio();
-        salvarGrafo();
-      };
-      palco.addEventListener('pointermove', mover);
-      palco.addEventListener('pointerup', soltar, { once: true });
-      palco.addEventListener('pointercancel', soltar, { once: true });
-      return;
-    }
-    // borracha: passa por cima de um traço e ele some inteiro (nós e notas não são tocados)
-    let ultimo = p; let mudou = false;
-    const apagar = (q) => {
-      const r = G.apagarInteiro(grafo.tracos, q.x, q.y, 10 / grafo.cam.z);
-      if (r.mudou) { grafo.tracos = r.objs; mudou = true; pintarTracos(); }
-    };
-    apagar(p);
-    const mover = (m) => {
-      const q = paraMundo(m.clientX, m.clientY);
-      const n = Math.max(1, Math.ceil(Math.hypot(q.x - ultimo.x, q.y - ultimo.y) * grafo.cam.z / 6));
-      for (let i = 1; i <= n; i += 1) apagar({ x: ultimo.x + ((q.x - ultimo.x) * i) / n, y: ultimo.y + ((q.y - ultimo.y) * i) / n });
-      ultimo = q;
-    };
-    const soltar = () => { palco.removeEventListener('pointermove', mover); if (mudou) { pintarVazio(); salvarGrafo(); } };
-    palco.addEventListener('pointermove', mover);
-    palco.addEventListener('pointerup', soltar, { once: true });
-    palco.addEventListener('pointercancel', soltar, { once: true });
-  }
 
   function pintarVazio() {
     const atual = sessoes.find((s) => s.id === ativa);
@@ -648,7 +519,7 @@ function montar(corpo) {
 
   // ---------- mover o canvas, zoom e soltar arquivos ----------
   palco.addEventListener('pointerdown', (e) => {
-    if (e.button === 0 && ativa && ferr && !e.target.closest('.palco-acoes, .video-nos, .video-ferramentas, button, .video-vazio .bt, .video-nota')) { usarFerramenta(e); return; }
+    if (e.button === 0 && ativa && desenho.ferramenta() && !e.target.closest('.palco-acoes, .video-nos, .video-ferramentas, button, .video-vazio .bt, .video-nota')) { desenho.usar(e); return; }
     if (e.button !== 0 || !ativa || e.target.closest('.video-no, .video-nota, .video-ferramentas, .palco-acoes, .video-nos, button, .video-vazio .bt')) return;
     e.preventDefault(); // mover o canvas não seleciona texto
     const ini = { x: e.clientX, y: e.clientY, cx: grafo.cam.x, cy: grafo.cam.y };

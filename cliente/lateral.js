@@ -6,7 +6,6 @@ import * as shell from './shell.js';
 const ORDENS = [['nome', 'Nome (A a Z)'], ['nome-desc', 'Nome (Z a A)'], ['recentes', 'Mais recentes']];
 export const FUNCOES = [
   { id: 'conversas', nome: 'Conversas', icone: 'conversa', faz: 'Agentes de IA trabalhando no cérebro' },
-  { id: 'conteudos', nome: 'Conteúdos', icone: 'conteudos', faz: 'Galeria do que foi gerado e enviado' },
   { id: 'whatsapp', nome: 'WhatsApp', icone: 'whatsapp', faz: 'Conexão, motor e quem pode dar ordens' },
   { id: 'n8n', nome: 'n8n', icone: 'n8n', faz: 'Automações do servidor' },
   { id: 'lousa', nome: 'Quadro', icone: 'lousa', faz: 'Desenho livre, post-its e formas num quadro infinito' },
@@ -39,12 +38,6 @@ function acharNo(caminho, nos = dados) {
 export function abrirFuncao(id) {
   const f = FUNCOES.find((x) => x.id === id);
   if (!f) return;
-  if (id === 'conteudos') {
-    // Conteúdos é uma janela flutuante sobre a área de trabalho das conversas (para arrastar arquivos para lá)
-    if (!['conversas', 'video', 'lousa'].includes(shell.ativa()?.tipo)) shell.abrir({ id: 'f:conversas', tipo: 'conversas', titulo: 'Conversas' }); // a galeria também flutua sobre a Criação de vídeo e as Lousas
-    emitir('conteudos-alternar');
-    return;
-  }
   shell.abrir({ id: `f:${f.id}`, tipo: f.id, titulo: f.nome });
 }
 

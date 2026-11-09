@@ -7,7 +7,7 @@ import path from 'node:path';
 import { lerJson, gravarJson } from './dados.js';
 
 const ID = /^[a-f0-9]{16}$/;
-const TIPOS = new Set(['stroke', 'shape', 'sticky', 'text', 'frame', 'line']);
+const TIPOS = new Set(['stroke', 'shape', 'sticky', 'text', 'frame', 'line', 'midia']);
 export const LIMITES = { bytes: 8 * 1024 * 1024, objetos: 20000, pontos: 50000, texto: 20000, miniatura: 60 * 1024 };
 
 const invalida = (porque) => new Error(`quadro inválido: ${porque}`);
@@ -23,6 +23,10 @@ function validarObjeto(o, i) {
   if (o.t === 'stroke') {
     if (!Array.isArray(o.p) || !o.p.length || o.p.length > LIMITES.pontos) throw invalida(`pontos do traço ${i}`);
     for (const p of o.p) if (!Array.isArray(p) || p.length !== 2 || !finito(p[0]) || !finito(p[1])) throw invalida(`ponto do traço ${i}`);
+  }
+  if (o.t === 'midia') { // imagem ou vídeo do cérebro: só o caminho relativo, sem sair da pasta
+    if (typeof o.src !== 'string' || !o.src || o.src.length > 1000 || o.src.startsWith('/') || o.src.split(/[\\/]/).includes('..')) throw invalida(`arquivo do objeto ${i}`);
+    if ('v' in o && typeof o.v !== 'boolean') throw invalida(`vídeo do objeto ${i}`);
   }
 }
 
