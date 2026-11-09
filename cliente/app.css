@@ -560,7 +560,7 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .guia-corpo.conversas.sem-coluna .coluna { display: none; }
 
 /* Criação de vídeo: sessões na barra da direita, nós sobre o canvas */
-.guia-corpo.video-espaco { --t-midia: #2fae78; --t-lista: #6f86ef; --t-texto: #d99a1c; --t-video: #e0558a; overflow: hidden; display: grid; grid-template-columns: 1fr 300px; }
+.guia-corpo.video-espaco { --t-midia: #2fae78; --t-audio: #9b6bdf; --t-lista: #6f86ef; --t-texto: #d99a1c; --t-video: #e0558a; overflow: hidden; display: grid; grid-template-columns: 1fr 300px; }
 .guia-corpo.video-espaco.sem-coluna { grid-template-columns: 1fr; }
 .guia-corpo.video-espaco.sem-coluna .video-sessoes { display: none; }
 .video-vazio { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 24px; pointer-events: none; }
@@ -568,7 +568,8 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-vazio h2 { margin: 0; font-size: 20px; }
 .video-vazio p { margin: 0; max-width: 46ch; color: var(--texto-2); }
 .video-vazio-icone { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--painel); border: 1px solid var(--linha); color: var(--acento); }
-.video-nos { position: absolute; left: 170px; right: 170px; margin-inline: auto; bottom: 12px; width: max-content; max-width: calc(100% - 340px); z-index: 5; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 6px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); }
+/* menu do +: abre acima da barra de ferramentas, centralizado nela */
+.video-nos { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: max-content; z-index: 5; display: grid; grid-template-columns: repeat(2, auto); gap: 6px; padding: 6px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--linha); box-shadow: var(--sombra); }
 .video-no-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--painel); color: inherit; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .video-no-chip:hover { border-color: var(--acento); }
 .video-no-chip small { font-weight: 400; color: var(--texto-2); }
@@ -576,10 +577,27 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .card.video-no { overflow: visible; }
 .card.video-no.opc { border-style: dashed; }
 .video-no .card-corpo { overflow: hidden; border-radius: 0 0 13px 13px; display: grid; }
-.video-ref { display: grid; grid-template-rows: 1fr auto; gap: 4px; padding: 6px; min-height: 0; }
-.video-ref.principal { padding: 4px; }
-.video-ref.principal img, .video-ref.principal video { object-fit: cover; }
-.video-ref img, .video-ref video { width: 100%; height: 100%; min-height: 0; object-fit: contain; border-radius: 8px; background: var(--hover); }
+/* mídia preenche o card inteiro (Conteúdo principal, Referência e itens da Lista) */
+.video-ref { display: grid; grid-template-rows: 1fr auto; gap: 4px; padding: 4px; min-height: 0; }
+.video-ref img, .video-ref video, .video-lista-item img, .video-lista-item video { width: 100%; height: 100%; min-height: 0; object-fit: cover; border-radius: 8px; background: var(--hover); }
+.video-lista-no { display: grid; grid-template-rows: auto 1fr; gap: 6px; padding: 8px; min-height: 0; font-size: 12px; color: var(--texto-2); }
+.video-lista-itens { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 104px; gap: 6px; overflow: auto; min-height: 0; align-content: start; }
+.video-lista-item { min-width: 0; border-radius: 8px; overflow: hidden; }
+.video-audio { display: grid; gap: 6px; padding: 10px; align-content: center; font-size: 12px; color: var(--texto-2); }
+.video-audio audio { width: 100%; height: 36px; }
+.video-audio small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-audio.vazio { justify-items: center; text-align: center; border: 1px dashed var(--linha); border-radius: 8px; margin: 8px; }
+.video-audio.vazio svg { width: 26px; height: 26px; color: var(--t-audio); }
+/* botão direito num nó: duplicar, copiar, colar, remover */
+.video-menu-ctx { position: absolute; z-index: 20; min-width: 190px; display: grid; padding: 4px; border-radius: 10px; background: var(--card); border: 1px solid var(--linha); box-shadow: var(--sombra); }
+.video-menu-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 7px; background: none; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.video-menu-item:hover, .video-menu-item:focus-visible { background: var(--hover); outline: none; }
+.video-menu-item svg { width: 15px; height: 15px; color: var(--texto-2); }
+.video-menu-item span { flex: 1; }
+.video-menu-item kbd { font: inherit; font-size: 11px; color: var(--texto-3); }
+.video-area-selecao { position: absolute; z-index: 2147482999; pointer-events: none; border: 1px solid var(--acento); background: color-mix(in srgb, var(--acento) 12%, transparent); border-radius: 4px; }
+.video-palco[data-ferr="mao"] { cursor: grab; }
+.video-palco[data-ferr="mao"].arrastando { cursor: grabbing; }
 .video-ref small { color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-prompt { width: 100%; height: 100%; resize: none; border: 0; background: transparent; color: inherit; font: inherit; padding: 10px; outline: none; }
 .video-info { display: grid; gap: 8px; padding: 12px; align-content: start; font-size: 12.5px; color: var(--texto-2); }
@@ -718,7 +736,7 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 }
 
 /* ---------- Criação de vídeo: desenho livre, nota adesiva e borracha ---------- */
-.video-ferramentas { position: absolute; left: 12px; bottom: 12px; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: var(--card); border: 1px solid var(--linha); box-shadow: var(--sombra); }
+.video-ferramentas { position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: var(--card); border: 1px solid var(--linha); box-shadow: var(--sombra); }
 .video-ferr { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; color: var(--texto-2); }
 .video-ferr:hover { background: var(--hover); color: var(--texto); }
 .video-ferr[aria-pressed="true"] { background: var(--selecao); color: var(--acento); }
@@ -735,6 +753,7 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-palco.desenhando { cursor: crosshair; }
 .video-palco.desenhando .video-no, .video-palco.desenhando .video-nota { pointer-events: none; }
 .video-palco[data-ferr="borracha"] { cursor: cell; }
+.video-palco[data-ferr="tesoura"] .ligacao-alvo { cursor: crosshair; }
 
 /* fundo pontilhado em toda a área de trabalho das Funções (o que fica atrás das caixas); notas e bancos continuam lisos para ler */
 .area { background-color: var(--fundo); background-image: radial-gradient(circle, var(--linha) 1.1px, transparent 1.2px); background-size: 24px 24px; }
@@ -772,7 +791,7 @@ body:is([data-guia="pagina"], [data-guia="banco"], [data-guia="arquivo"]) .area 
 @media (max-width: 720px) { .guia-corpo.lousa-espaco .lousa-coluna { margin: 0; border-radius: 0; } }
 
 /* com a lateral fechada, a pílula das Funções flutua sobre a esquerda: as ferramentas se afastam dela */
-body.sem-lateral :is(.lousa-ferramentas, .lousa-desfazer, .video-ferramentas) { left: calc(var(--rail) + 4px); }
+body.sem-lateral :is(.lousa-ferramentas, .lousa-desfazer) { left: calc(var(--rail) + 4px); }
 
 /* Conteúdos: lixeira sempre visível no canto do cartão e confirmação em cima dele */
 .cartao-arrastavel { position: relative; }

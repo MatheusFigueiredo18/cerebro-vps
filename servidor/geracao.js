@@ -10,6 +10,8 @@ import { resolverNoVault, tipoMidia, relDe, natural } from './arquivos.js';
 export const LIMITE_GERAR_MS = 45 * 60_000; // render na VPS (2 vCPU) pode levar vários minutos
 const MAX_MIDIAS = 30;
 const EXT_SAIDA = /\.(mp4|mov|webm)$/i;
+const EXT_AUDIO = /\.(mp3|wav|m4a|aac|ogg|flac)$/i;
+const TIPOS_AUDIO = { musica: 'Música (fundo)', efeito: 'Efeito sonoro' };
 const texto = (v, max) => String(v ?? '').replace(/\u0000/g, '').trim().slice(0, max);
 const invalido = (porque) => new Error(`pedido de vídeo inválido: ${porque}`);
 
@@ -18,10 +20,14 @@ export function promptGerador(id, cfg) {
   const projeto = path.join(cfg.dados, 'remotion');
   return [
     'Você é o gerador da Criação de vídeo do painel do cérebro, rodando sem tela no servidor.',
-    'Faça o vídeo com o Remotion (use a skill do Remotion se estiver instalada).',
+    'Antes de tudo leia e siga a skill edicao-video do cérebro (.claude/skills/edicao-video/SKILL.md): ela decide cortes, legendas, animações, transições e som de cada momento. Clicar em Gerar já é a aprovação: não pergunte nada.',
+    'Faça o vídeo com o Remotion (use a skill remotion-best-practices para a API).',
     `Use o projeto Remotion em ${projeto} (se não existir, crie com npm: remotion, @remotion/cli, react e react-dom). Nunca crie projeto nem node_modules dentro do cérebro.`,
     `Uma composição para esta sessão, com id video-${id.slice(0, 8)}. Leve as mídias para a pasta public do projeto.`,
     'Formato padrão 1080x1920 (9:16, Instagram), a não ser que o pedido diga outro.',
+    'Som: o áudio do Conteúdo principal vai no vídeo final, nunca mudo. Gravação de celular costuma vir baixa: normalize a fala antes de usar (ex.: ffmpeg -af loudnorm=I=-14:TP=-1.5:LRA=11).',
+    'Música fica por baixo da fala (bem mais baixa que a voz, com entrada e saída suaves); efeitos sonoros curtos nos cortes e destaques. Use só os arquivos de áudio indicados no pedido.',
+    'Antes de responder, confira com ffmpeg -af volumedetect que o mp4 final tem áudio audível (mean_volume acima de -30 dB); se não tiver, corrija e renderize de novo.',
     `Grave o vídeo final em ${saida}/v<N>.mp4, com N o próximo número livre. Nunca sobrescreva uma versão anterior.`,
     'Pedidos seguintes nesta conversa são ajustes do mesmo vídeo: altere a composição e renderize uma versão nova.',
     'Responda curto: o que fez e o nome do arquivo gerado.',
@@ -33,6 +39,7 @@ export function montarPedido(b, absDe) {
   if (b.principal) linhas.push(`Conteúdo principal (todo o contexto do vídeo): ${absDe(b.principal)}`);
   const refs = b.referencias ?? [];
   if (refs.length) linhas.push('Referências:', ...refs.map((r) => `- ${absDe(r)}`));
+  for (const a of b.audios ?? []) linhas.push(`${TIPOS_AUDIO[a.tipo]}: ${absDe(a.caminho)}`);
   const prompts = b.prompts ?? [];
   if (prompts.length) linhas.push('Prompt:', ...prompts);
   if (b.pedido) linhas.push(linhas.length ? `Pedido: ${b.pedido}` : b.pedido);
@@ -61,10 +68,10 @@ export function criarGeracao({ cfg, videos, registroExiste, agora = Date.now, lo
     return { estado: 'parado', ...estados.get(id), chat: lerChat(id), videos: prontos(id) };
   }
 
-  // valida na fronteira: só mídia que está dentro do cérebro
-  function midia(rel) {
+  // valida na fronteira: só mídia (ou áudio, quando pedido) que está dentro do cérebro
+  function midia(rel, audio = false) {
     const abs = typeof rel === 'string' ? resolverNoVault(cfg.vault, rel) : null;
-    if (!abs || !tipoMidia(abs) || !fs.existsSync(abs)) throw invalido(`mídia ${String(rel).slice(0, 80)}`);
+    if (!abs || !(audio ? EXT_AUDIO.test(abs) : tipoMidia(abs)) || !fs.existsSync(abs)) throw invalido(`${audio ? 'áudio' : 'mídia'} ${String(rel).slice(0, 80)}`);
     return relDe(cfg.vault, abs);
   }
 
@@ -72,14 +79,19 @@ export function criarGeracao({ cfg, videos, registroExiste, agora = Date.now, lo
     videos.ler(id);
     if (ocupado) throw Object.assign(new Error(ocupado === id ? 'este vídeo já está sendo gerado' : 'outro vídeo está sendo gerado; espere terminar'), { code: 'CONFLITO' });
     const refs = Array.isArray(b.referencias) ? b.referencias : [];
-    if (refs.length > MAX_MIDIAS) throw invalido('referências demais');
+    const audios = Array.isArray(b.audios) ? b.audios : [];
+    if (refs.length > MAX_MIDIAS || audios.length > MAX_MIDIAS) throw invalido('mídias demais');
     const limpo = {
       principal: b.principal ? midia(b.principal) : null,
-      referencias: refs.map(midia),
+      referencias: refs.map((r) => midia(r)),
+      audios: audios.map((a) => {
+        if (!a || !Object.hasOwn(TIPOS_AUDIO, a.tipo)) throw invalido('tipo de áudio');
+        return { tipo: a.tipo, caminho: midia(a.caminho, true) };
+      }),
       prompts: (Array.isArray(b.prompts) ? b.prompts : []).map((p) => texto(p, 8000)).filter(Boolean).slice(0, 20),
       pedido: texto(b.pedido, 8000),
     };
-    if (!limpo.principal && !limpo.referencias.length && !limpo.prompts.length && !limpo.pedido) throw invalido('nada para gerar; ligue um conteúdo, um prompt ou escreva para o Claude');
+    if (!limpo.principal && !limpo.referencias.length && !limpo.audios.length && !limpo.prompts.length && !limpo.pedido) throw invalido('nada para gerar; ligue um conteúdo, um prompt ou escreva para o Claude');
 
     const pedido = montarPedido(limpo, (rel) => path.join(cfg.vault, rel));
     fs.mkdirSync(pastaSaida(id), { recursive: true });
