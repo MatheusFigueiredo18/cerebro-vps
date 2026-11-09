@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { criarVideos } from '../servidor/videos.js';
-import { criarGeracao, montarPedido } from '../servidor/geracao.js';
+import { criarGeracao, montarPedido, listarSkills } from '../servidor/geracao.js';
 import { escrever, ate, cfgTeste, subir, entrar, json } from './ajuda.js';
 
 function montar() {
@@ -110,4 +110,32 @@ test('geração: música e efeito sonoro vão no pedido; áudio fora do cérebro
   assert.match(chamadas[0].prompt, /loudnorm/);
   terminar();
   await ate(() => ger.estado(s.id).estado === 'pronto');
+});
+
+test('geração: Modelo base vai no pedido com o que extrair; habilidades escolhidas trocam as skills do prompt', async () => {
+  const { cfg, videos, ger, chamadas, terminar } = montar();
+  escrever(cfg.vault, 'conteudo/modelo.mp4', 'x');
+  escrever(cfg.vault, '.claude/skills/carrossel/SKILL.md', `---
+name: carrossel
+description: "Faz carrossel"
+---
+`);
+  escrever(cfg.vault, '.claude/skills/edicao-video/SKILL.md', `---
+name: edicao-video
+description: "Edita"
+---
+`);
+  const s = videos.criar({});
+  for (const ruim of [{ modelos: [{ caminho: 'conteudo/modelo.mp4', extrair: ['nada'] }] }, { modelos: [{ caminho: '../x.mp4' }] },
+    { principal: 'conteudo/bruto.mp4', habilidades: ['nao-existe'] }, { principal: 'conteudo/bruto.mp4', habilidades: ['../../etc'] }, { principal: 'conteudo/bruto.mp4', habilidades: 'carrossel' }]) {
+    assert.throws(() => ger.gerar(s.id, ruim), /inválido/);
+  }
+  ger.gerar(s.id, { modelos: [{ caminho: 'conteudo/modelo.mp4', extrair: ['texto', 'animacao'] }], habilidades: ['carrossel'] });
+  assert.ok(chamadas[0].texto.includes(`Modelo base (copie dele só o que está marcado, o conteúdo continua sendo o principal): ${path.join(cfg.vault, 'conteudo', 'modelo.mp4')}`));
+  assert.match(chamadas[0].texto, /Extrair: estilo de texto .*; animações/);
+  assert.match(chamadas[0].prompt, /skills\/carrossel\/SKILL\.md/);
+  assert.doesNotMatch(chamadas[0].prompt, /edicao-video/);
+  terminar();
+  await ate(() => ger.estado(s.id).estado === 'pronto');
+  assert.deepEqual(listarSkills(cfg.vault).map((k) => [k.nome, k.descricao, k.padrao]), [['carrossel', 'Faz carrossel', false], ['edicao-video', 'Edita', true]]);
 });

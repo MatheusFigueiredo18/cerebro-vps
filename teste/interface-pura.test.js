@@ -270,7 +270,7 @@ test('video-grafo: sobe por Prompt e Claude até as mídias e pré-escreve o pro
       no('t', 'prompt', { texto: ' legenda grande ' }), no('c', 'claude'), no('g', 'remotion'), no('v', 'saida'), no('solto', 'prompt', { texto: 'fora' })],
     links: [{ a: 'p', b: 't' }, { a: 't', b: 'c' }, { a: 'c', b: 'g' }, { a: 'r', b: 'g' }, { a: 'g', b: 'v' }],
   };
-  assert.deepEqual(entradasDe(grafo, 'g'), { principal: 'conteudo/a.mp4', referencias: ['conteudo/b.png'], audios: [], prompts: ['Sobre a.mp4: legenda grande'] });
+  assert.deepEqual(entradasDe(grafo, 'g'), { principal: 'conteudo/a.mp4', referencias: ['conteudo/b.png'], modelos: [], audios: [], prompts: ['Sobre a.mp4: legenda grande'] });
   assert.equal(ligadoEm(grafo, 'g', 'saida')?.id, 'v');
   assert.equal(ligadoEm(grafo, 'c', 'remotion')?.id, 'g');
   assert.equal(ligadoEm(grafo, 'solto', 'remotion'), null);
@@ -290,6 +290,17 @@ test('video-grafo: itens dentro da Lista viram referências; Música e Efeito so
   assert.deepEqual(r.referencias, ['c/1.png', 'c/2.mp4']);
   assert.deepEqual(r.audios, [{ tipo: 'musica', caminho: 'c/trilha.mp3' }, { tipo: 'efeito', caminho: 'c/pop.wav' }]);
   assert.ok(ehAudio('a/B.MP3') && !ehAudio('a/b.mp4'));
+});
+
+test('video-grafo: Modelo base vai com o que extrair, mesmo passando por Lista; sem vídeo não entra', () => {
+  const no = (id, tipo, dados = {}) => ({ id, tipo, dados });
+  const grafo = {
+    nos: [no('m', 'modelo', { caminho: 'c/modelo.mp4', extrair: ['texto', 'fundo'] }), no('m2', 'modelo', { extrair: ['texto'] }), no('l', 'lista'), no('g', 'remotion')],
+    links: [{ a: 'm', b: 'l' }, { a: 'l', b: 'g' }, { a: 'm2', b: 'g' }],
+  };
+  const r = entradasDe(grafo, 'g');
+  assert.deepEqual(r.modelos, [{ caminho: 'c/modelo.mp4', extrair: ['texto', 'fundo'] }]);
+  assert.deepEqual(r.referencias, []);
 });
 
 test('video-grafo: clonar troca ids, desloca e só leva as ligações internas; nosNaArea pega quem cruza o retângulo', () => {

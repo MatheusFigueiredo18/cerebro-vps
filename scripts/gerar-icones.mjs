@@ -24,7 +24,7 @@ const MAPA = {
   grade: 'grid-3x3', mapa: 'map', ajustar: 'maximize', lixeira: 'trash-2', cadeado: 'lock', destravar: 'lock-open', frente: 'arrow-up-to-line',
   tras: 'arrow-down-to-line', agrupar: 'group', paleta: 'palette', balde: 'paint-bucket', ajuda: 'circle-help',
   // Criação de vídeo
-  musica: 'music', duplicar: 'copy-plus', colar: 'clipboard-paste',
+  musica: 'music', duplicar: 'copy-plus', colar: 'clipboard-paste', pontos: 'ellipsis', modelo: 'layers',
 };
 
 const interno = (svg) => svg.replace(/<!--[\s\S]*?-->/g, '').replace(/<svg[\s\S]*?>/, '').replace(/<\/svg>\s*$/, '').replace(/\s+/g, ' ').replace(/> </g, '><').trim();

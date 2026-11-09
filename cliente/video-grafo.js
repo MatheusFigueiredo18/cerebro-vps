@@ -1,5 +1,5 @@
 // Criação de vídeo: lógica pura do grafo (sem DOM), testada em teste/interface-pura.test.js.
-// Fluxo: Conteúdo principal / Referência / Música / Efeito sonoro → Prompt (opcional) → Claude (opcional) → Gerar vídeo → Vídeo Final.
+// Fluxo: Conteúdo principal / Referência / Modelo base / Música / Efeito sonoro → Prompt (opcional) → Claude (opcional) → Gerar vídeo → Vídeo Final.
 import { nomeBase } from './formatos.js';
 
 export const ehAudio = (c) => /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(c ?? '');
@@ -7,7 +7,7 @@ const fontes = (grafo, id) => grafo.links.filter((l) => l.b === id).map((l) => g
 
 // tudo o que chega no Gerar vídeo, subindo por Prompt, Claude e Lista; o texto de um Prompt ligado numa mídia vira pré-escrita sobre ela
 export function entradasDe(grafo, idGerar) {
-  const r = { principal: null, referencias: [], audios: [], prompts: [] };
+  const r = { principal: null, referencias: [], modelos: [], audios: [], prompts: [] };
   const vistos = new Set();
   const referencia = (c) => { if (c && c !== r.principal && !r.referencias.includes(c)) r.referencias.push(c); };
   const subir = (id) => {
@@ -15,7 +15,8 @@ export function entradasDe(grafo, idGerar) {
       if (vistos.has(n.id)) continue;
       vistos.add(n.id);
       const c = n.dados?.caminho;
-      if (n.tipo === 'principal' && c && !r.principal) r.principal = c;
+      if (n.tipo === 'modelo') { if (c) r.modelos.push({ caminho: c, extrair: n.dados?.extrair ?? [] }); }
+      else if (n.tipo === 'principal' && c && !r.principal) r.principal = c;
       else if (n.tipo === 'principal' || n.tipo === 'referencia') referencia(c);
       else if ((n.tipo === 'musica' || n.tipo === 'efeito') && c) r.audios.push({ tipo: n.tipo, caminho: c });
       else if (n.tipo === 'lista') { (n.dados?.itens ?? []).forEach((i) => referencia(i.caminho)); subir(n.id); }

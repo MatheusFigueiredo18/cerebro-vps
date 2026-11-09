@@ -27,15 +27,19 @@ const CAB = 20; // altura do ponto das portas, a partir do topo do card
 const TIPOS = {
   principal: { nome: 'Conteúdo principal', sub: 'vídeo ou imagem', icone: 'filme', w: 240, h: 360, entradas: [], saida: 'midia', faz: 'O vídeo ou a imagem que é todo o contexto do vídeo: arraste de Conteúdos' },
   referencia: { nome: 'Referência', sub: 'vídeo ou imagem', icone: 'imagem', w: 240, h: 360, entradas: [], saida: 'midia', faz: 'Arraste um vídeo ou imagem de Conteúdos para o canvas' },
+  modelo: { nome: 'Modelo base', sub: 'vídeo de modelo', icone: 'modelo', w: 260, h: 480, entradas: [], saida: 'midia', faz: 'Um vídeo que serve de base: escolha o que copiar dele (texto, edição, fundo, animações)' },
   lista: { nome: 'Lista', sub: 'lista', icone: 'conteudos', w: 280, h: 300, entradas: ['midia'], saida: 'lista', faz: 'Agrupa várias referências: a mídia ligada nela entra para dentro da lista' },
   musica: { nome: 'Música', sub: 'áudio de fundo', icone: 'musica', w: 260, h: 150, entradas: [], saida: 'audio', faz: 'Trilha por baixo da fala: arraste um áudio de Conteúdos para este card' },
   efeito: { nome: 'Efeito sonoro', sub: 'áudio curto', icone: 'ondas', w: 260, h: 150, entradas: [], saida: 'audio', faz: 'Whoosh, pop, clique: arraste um áudio de Conteúdos para este card' },
   prompt: { nome: 'Prompt', sub: 'texto', icone: 'doc', w: 280, h: 190, entradas: ['midia', 'audio'], saida: 'texto', faz: 'Texto livre sobre a mídia ligada nele: estilo, motion, efeitos, música, legenda' },
   claude: { nome: 'Claude', sub: 'acompanhar e corrigir', icone: 'terminal', w: 320, h: 380, entradas: ['midia', 'audio', 'texto', 'lista'], saida: 'texto', faz: 'Converse com o Claude que faz o vídeo: peça ajustes sem encerrar a sessão' },
-  remotion: { nome: 'Gerar vídeo', sub: 'Remotion', icone: 'filme', w: 260, h: 230, entradas: ['lista', 'texto', 'midia', 'audio'], saida: 'video', faz: 'O Claude monta o vídeo no Remotion e renderiza na VPS' },
+  remotion: { nome: 'Gerar vídeo', sub: 'Remotion', icone: 'filme', w: 260, h: 260, entradas: ['lista', 'texto', 'midia', 'audio'], saida: 'video', faz: 'O Claude monta o vídeo no Remotion e renderiza na VPS' },
   magnific: { nome: 'Gerador Magnific', sub: 'opcional', icone: 'brilho', w: 260, h: 170, entradas: ['texto', 'midia'], saida: 'video', faz: 'Clipe ou imagem por IA; exige plano pago e chave da API', opcional: true },
   saida: { nome: 'Vídeo Final', sub: 'saída', icone: 'video', w: 220, h: 330, entradas: ['video'], saida: null, faz: 'Preview, versões e download' },
 };
+// o que dá para copiar do Modelo base; as chaves são as mesmas de EXTRAIR em servidor/geracao.js
+const EXTRAIR = [['texto', 'Estilo de texto'], ['edicao', 'Estilo de edição'], ['fundo', 'Fundo do vídeo'], ['edicoes', 'Edições do vídeo'], ['animacao', 'Animação']];
+const subDe = (no) => (['principal', 'referencia'].includes(no.tipo) && no.dados?.caminho ? (tipoArquivo(no.dados.caminho) === 'video' ? 'Vídeo' : 'Imagem') : TIPOS[no.tipo].sub);
 const CORES = { midia: 'var(--t-midia)', audio: 'var(--t-audio)', lista: 'var(--t-lista)', texto: 'var(--t-texto)', video: 'var(--t-video)' };
 
 const quando = (ms) => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -54,6 +58,8 @@ function montar(corpo) {
   const GER_VAZIA = { estado: 'parado', chat: [], videos: [] };
   let ger = GER_VAZIA; let timerGer = 0;
   const rascunhos = new Map(); // id do nó Claude -> texto ainda não enviado
+  const vendoSkills = new Set(); // ids dos Gerar vídeo com a lista de habilidades aberta
+  let skills = null; // skills do cérebro (/api/video/habilidades), lidas uma vez
 
   corpo.classList.add('video-espaco');
   corpo.classList.toggle('sem-coluna', ler('videoColunaRecolhida', false) === true);
@@ -410,6 +416,7 @@ function montar(corpo) {
     const centro = extra.x !== undefined ? { x: extra.x, y: extra.y } : paraMundo(palco.getBoundingClientRect().left + palco.clientWidth / 2 - (t.w * grafo.cam.z) / 2, palco.getBoundingClientRect().top + palco.clientHeight / 2 - (t.h * grafo.cam.z) / 2);
     const desloc = (grafo.nos.length % 6) * 24;
     const no = { id: crypto.randomUUID(), tipo, x: Math.round(centro.x + desloc), y: Math.round(centro.y + desloc), w: t.w, h: t.h, dados: extra.caminho ? { caminho: extra.caminho } : {} };
+    if (tipo === 'modelo') no.dados.extrair = EXTRAIR.map(([k]) => k);
     grafo.nos.push(no);
     pintarNo(no);
     focar(no.id);
@@ -431,10 +438,38 @@ function montar(corpo) {
     ? el('video', { src: `${urlArquivo(c)}#t=0.1`, muted: true, loop: true, preload: 'metadata', playsInline: true, title: 'Passe o mouse para ver a prévia' })
     : el('img', { src: urlArquivo(c), alt: nomeBase(c), draggable: false, loading: 'lazy' }));
 
+  // nome do arquivo com o botãozinho de tela cheia ao lado (o vídeo ganha som e controles enquanto está em tela cheia)
+  function nomeComTelaCheia(c, midia) {
+    const video = midia.tagName === 'VIDEO';
+    const miniaturaDeNovo = () => { if (video) { midia.controls = false; midia.muted = true; midia.pause(); } };
+    if (video) midia.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) miniaturaDeNovo(); });
+    const cheia = () => {
+      if (video) { midia.controls = true; midia.muted = false; }
+      // sem tela cheia (navegador recusou): abre o arquivo numa aba
+      (midia.requestFullscreen?.() ?? Promise.reject()).catch(() => { miniaturaDeNovo(); window.open(urlArquivo(c), '_blank', 'noopener'); });
+    };
+    return el('div', { class: 'video-ref-nome' }, el('small', { title: c }, nomeBase(c)),
+      el('button', { type: 'button', class: 'video-tela-cheia', title: 'Tela cheia', 'aria-label': `Ver ${nomeBase(c)} em tela cheia`, onpointerdown: (e) => e.stopPropagation(), onclick: cheia }, icone('ajustar')));
+  }
+  function previa(c) { const m = miniatura(c); return [m, nomeComTelaCheia(c, m)]; }
+
   function corpoDoNo(no) {
-    if (no.tipo === 'referencia' || no.tipo === 'principal') {
+    if (no.tipo === 'referencia' || no.tipo === 'principal') return el('div', { class: 'video-ref' }, previa(no.dados.caminho));
+    if (no.tipo === 'modelo') {
       const c = no.dados.caminho;
-      return el('div', { class: 'video-ref' }, miniatura(c), el('small', { title: c }, nomeBase(c)));
+      const marcados = new Set(no.dados.extrair ?? []);
+      const opcoes = el('fieldset', { class: 'video-extrair' }, el('legend', {}, 'O que extrair do vídeo'),
+        EXTRAIR.map(([k, nome]) => {
+          const caixa = el('input', { type: 'checkbox', checked: marcados.has(k), onchange: () => {
+            if (caixa.checked) marcados.add(k); else marcados.delete(k);
+            no.dados.extrair = EXTRAIR.map(([x]) => x).filter((x) => marcados.has(x));
+            salvarGrafo();
+          } });
+          return el('label', { onpointerdown: (e) => e.stopPropagation() }, caixa, nome);
+        }));
+      const midia = c ? el('div', { class: 'video-ref' }, previa(c))
+        : el('div', { class: 'video-audio vazio' }, icone('modelo'), el('small', {}, 'Arraste de Conteúdos o vídeo que serve de modelo para este card.'));
+      return el('div', { class: 'video-modelo' }, midia, opcoes);
     }
     if (no.tipo === 'musica' || no.tipo === 'efeito') {
       const c = no.dados.caminho;
@@ -465,10 +500,13 @@ function montar(corpo) {
     const gerando = ger.estado === 'gerando';
     const ultimo = ger.videos[0];
     if (no.tipo === 'remotion') {
+      if (vendoSkills.has(no.id)) return corpoSkills(no);
+      const usadas = no.dados.habilidades ?? skills?.filter((k) => k.padrao).map((k) => k.nome);
       return el('div', { class: 'video-info' }, el('small', {}, 'Entrada: Conteúdo principal, Referências, Música, Efeito sonoro, Prompt ou Claude. Saída: Vídeo Final.'),
         el('button', { type: 'button', class: 'bt primario', disabled: gerando, onclick: () => gerar(no) }, icone('play'), gerando ? 'Gerando…' : 'Gerar'),
         el('small', { class: `video-ger-status ${ger.estado}`, role: 'status' }, statusGeracao()),
-        ultimo ? el('a', { class: 'bt pequeno', href: urlArquivo(ultimo.caminho, true), download: '' }, icone('baixar'), 'Baixar vídeo') : null);
+        ultimo ? el('a', { class: 'bt pequeno', href: urlArquivo(ultimo.caminho, true), download: '' }, icone('baixar'), 'Baixar vídeo') : null,
+        usadas ? el('small', { class: 'video-skills-usadas', title: 'Três pontinhos > Habilidades para trocar' }, `Habilidades: ${usadas.length ? usadas.join(', ') : 'nenhuma'}`) : null);
     }
     if (no.tipo === 'claude') return corpoClaude(no, gerando);
     // Vídeo: o mais novo da sessão, com troca de versão e download; antes de gerar, o quadro vazio de sempre
@@ -484,6 +522,32 @@ function montar(corpo) {
     versao.addEventListener('pointerdown', (e) => e.stopPropagation());
     return el('div', { class: 'video-ref video-saida' }, player, el('div', { class: 'video-saida-acoes' }, versao, baixar));
   }
+
+  // lista das skills do cérebro: as marcadas vão para o Claude ao gerar (sem escolha salva, valem as padrão)
+  function corpoSkills(no) {
+    if (!skills) return el('div', { class: 'video-info' }, el('small', {}, 'Carregando habilidades…'));
+    const marcadas = new Set(no.dados.habilidades ?? skills.filter((k) => k.padrao).map((k) => k.nome));
+    const itens = skills.map((k) => {
+      const caixa = el('input', { type: 'checkbox', checked: marcadas.has(k.nome), onchange: () => {
+        if (caixa.checked) marcadas.add(k.nome); else marcadas.delete(k.nome);
+        no.dados.habilidades = skills.map((x) => x.nome).filter((x) => marcadas.has(x));
+        salvarGrafo();
+      } });
+      return el('label', { title: k.descricao }, caixa, el('span', {}, el('b', {}, k.nome), el('small', {}, k.descricao)));
+    });
+    const lista = el('div', { class: 'video-skills', onpointerdown: (e) => e.stopPropagation(), onwheel: (e) => e.stopPropagation() },
+      itens.length ? itens : el('small', {}, 'Nenhuma skill em .claude/skills do cérebro.'));
+    return el('div', { class: 'video-info video-skills-painel' }, el('small', {}, 'Habilidades usadas ao gerar este vídeo:'), lista,
+      el('button', { type: 'button', class: 'bt pequeno', onclick: () => { vendoSkills.delete(no.id); repintarCorpo(no); } }, 'Pronto'));
+  }
+  let lendoSkills = null;
+  function carregarSkills() {
+    lendoSkills ??= api('/api/video/habilidades').then((r) => { skills = r; }, (e) => { lendoSkills = null; avisar(e.message, 'erro'); })
+      .then(() => { for (const { no: n } of cards.values()) if (n.tipo === 'remotion') repintarCorpo(n); });
+    return lendoSkills;
+  }
+  function abrirSkills(no) { vendoSkills.add(no.id); repintarCorpo(no); carregarSkills(); }
+  const repintarCorpo = (no) => cards.get(no.id)?.el.querySelector('.card-corpo').replaceChildren(corpoDoNo(no));
 
   function statusGeracao() {
     const min = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -526,7 +590,7 @@ function montar(corpo) {
       await enviarGrafo();
       await criadas.get(id);
       try {
-        const r = await api(`/api/video/${id}/gerar`, { metodo: 'POST', corpo: { ...entradasDe(grafo, g.id), pedido } });
+        const r = await api(`/api/video/${id}/gerar`, { metodo: 'POST', corpo: { ...entradasDe(grafo, g.id), habilidades: g.dados.habilidades, pedido } });
         if (ativa === id) mudarGeracao(r);
       } catch (e) { avisar(e.message, 'erro'); }
     })();
@@ -558,7 +622,9 @@ function montar(corpo) {
     const t = TIPOS[no.tipo];
     if (!t) return;
     // sem X: remover, duplicar e copiar ficam no botão direito
-    const topo = el('div', { class: 'card-topo', title: 'Botão direito: duplicar, copiar ou remover' }, icone(t.icone), el('div', { class: 'card-titulos' }, el('b', { class: 'card-titulo' }, t.nome), el('small', { class: 'card-sub' }, t.sub)));
+    const topo = el('div', { class: 'card-topo', title: 'Botão direito: duplicar, copiar ou remover' }, icone(t.icone), el('div', { class: 'card-titulos' }, el('b', { class: 'card-titulo' }, t.nome), el('small', { class: 'card-sub' }, subDe(no))),
+      no.tipo === 'remotion' ? el('button', { type: 'button', class: 'card-mais', title: 'Mais opções', 'aria-label': 'Mais opções do Gerar vídeo', 'aria-haspopup': 'menu',
+        onpointerdown: (e) => e.stopPropagation(), onclick: (e) => { const r = e.currentTarget.getBoundingClientRect(); abrirMenu({ clientX: r.left, clientY: r.bottom + 4 }, [['brilho', 'Habilidades', () => abrirSkills(no)]]); } }, icone('pontos')) : null);
     const c = el('div', { class: `card video-no${t.opcional ? ' opc' : ''}`, dados: { no: no.id } }, topo, el('div', { class: 'card-corpo' }, corpoDoNo(no)));
     Object.assign(c.style, { left: `${no.x}px`, top: `${no.y}px`, width: `${no.w}px`, height: `${no.h}px` });
     if (t.entradas.length) c.append(el('span', { class: 'video-porta e', title: `Entrada: ${t.entradas.join(', ')}`, dados: { porta: 'e', no: no.id } }));
@@ -749,7 +815,7 @@ function montar(corpo) {
       const alvo = alvoEl && grafo.nos.find((n) => n.id === alvoEl.dataset.no);
       if (!alvo) return;
       if (!compativel(no, alvo)) { avisar(`${TIPOS[no.tipo].nome} não liga em ${TIPOS[alvo.tipo].nome}: tipos diferentes.`); return; }
-      if (alvo.tipo === 'lista' && no.dados.caminho) { colocarNaLista(alvo, no.dados.caminho, no.tipo); removerNo(no.id); return; }
+      if (alvo.tipo === 'lista' && no.dados.caminho && no.tipo !== 'modelo') { colocarNaLista(alvo, no.dados.caminho, no.tipo); removerNo(no.id); return; }
       grafo.links.push({ a: no.id, b: alvo.id });
       atualizarListas();
       pintarLigacoes();
@@ -831,6 +897,12 @@ function montar(corpo) {
     const cardEl = document.elementFromPoint(ponto.x, ponto.y)?.closest('.video-no');
     const alvo = cardEl && grafo.nos.find((n) => n.id === cardEl.dataset.no);
     if (alvo?.tipo === 'lista' && midias.length) { midias.forEach((c) => colocarNaLista(alvo, c)); midias.length = 0; }
+    const videoSolto = midias.findIndex((c) => tipoArquivo(c) === 'video');
+    if (alvo?.tipo === 'modelo' && videoSolto >= 0) {
+      [alvo.dados.caminho] = midias.splice(videoSolto, 1);
+      repintarCorpo(alvo);
+      salvarGrafo();
+    } else if (alvo?.tipo === 'modelo' && midias.length) avisar('O Modelo base recebe um vídeo.');
     if ((alvo?.tipo === 'musica' || alvo?.tipo === 'efeito') && audios.length) {
       alvo.dados.caminho = audios.shift();
       cards.get(alvo.id).el.querySelector('.card-corpo').replaceChildren(corpoDoNo(alvo));
@@ -863,6 +935,7 @@ function montar(corpo) {
   pintarLista();
   carregarGrafo(null);
   iniciar();
+  carregarSkills();
   return {
     mostrar: () => { if (ativa) aplicarCam(); },
     esconder: () => { enviarGrafo(); },

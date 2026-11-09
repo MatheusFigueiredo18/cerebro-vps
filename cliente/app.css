@@ -599,6 +599,24 @@ body.arrastando-arquivo .conteudos-janela { opacity: .25; } /* deixa ver a área
 .video-palco[data-ferr="mao"] { cursor: grab; }
 .video-palco[data-ferr="mao"].arrastando { cursor: grabbing; }
 .video-ref small { color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-ref-nome { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.video-ref-nome small { flex: 1; min-width: 0; }
+.video-tela-cheia, .card-mais { flex: none; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--texto-2); cursor: pointer; padding: 0; }
+.video-tela-cheia { width: 22px; height: 22px; }
+.video-tela-cheia svg { width: 13px; height: 13px; }
+.card-mais { width: 26px; height: 26px; margin-left: auto; }
+.card-mais svg { width: 16px; height: 16px; }
+.video-tela-cheia:hover, .card-mais:hover, .video-tela-cheia:focus-visible, .card-mais:focus-visible { background: var(--hover); color: var(--texto); outline: none; }
+/* Modelo base: prévia em cima, o que extrair embaixo */
+.video-modelo { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+.video-extrair { display: grid; gap: 2px; margin: 0 8px 8px; padding: 6px 8px; border: 1px solid var(--linha); border-radius: 8px; font-size: 12.5px; }
+.video-extrair legend { padding: 0 4px; font-size: 11.5px; color: var(--texto-2); }
+.video-extrair label, .video-skills label { display: flex; align-items: center; gap: 8px; padding: 3px 2px; cursor: pointer; }
+.video-skills { display: grid; gap: 2px; max-height: 120px; overflow: auto; overscroll-behavior: contain; }
+.video-skills label { align-items: flex-start; }
+.video-skills span { display: grid; min-width: 0; color: var(--texto); }
+.video-skills span small { color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-skills-usadas { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-prompt { width: 100%; height: 100%; resize: none; border: 0; background: transparent; color: inherit; font: inherit; padding: 10px; outline: none; }
 .video-info { display: grid; gap: 8px; padding: 12px; align-content: start; font-size: 12.5px; color: var(--texto-2); }
 /* Saída: o quadro ocupa o card inteiro, como a miniatura da Referência */

@@ -13,6 +13,7 @@ Pasta desta habilidade (no cérebro): `.claude/skills/edicao-video/`. Dentro del
 
 - **Nó Gerar vídeo do painel** (Claude sem tela): clicar em Gerar já é a aprovação. Não pergunte nada, não espere ok, trabalhe até o mp4 final e grave onde o prompt de sistema mandar (`conteudo/video/<id>/v<N>.mp4`). Plano e decisões vão em arquivos dentro do projeto Remotion, não na conversa.
 - **Conversa normal**: pasta `conteudo/reels/<numero>-<slug>/` com `pedido.md`, o bruto (`antes-bruto.mp4`) e o resultado (`depois-editado.mp4`). Mostre o plano de animações e espere o ok antes de renderizar.
+- **Modelo base no pedido** ("Modelo base ... Extrair: ..."): o vídeo de modelo não entra no resultado. Tire quadros dele (`ffmpeg -vf "fps=2,scale=270:-1,tile=6x4"`) e, se tiver fala, transcreva para medir o ritmo; copie só o que está em "Extrair" (estilo de texto, estilo de edição, fundo, edições de cada momento, animações) e anote em `plano.md` o que tirou dele. O conteúdo continua vindo do Conteúdo principal.
 - **Ajuste de um vídeo já feito** ("tira a música", "legenda maior"): mude só o que foi pedido, mantenha o resto e renderize uma versão nova.
 
 ## 1. Ferramenta: sempre Remotion
