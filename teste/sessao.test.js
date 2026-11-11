@@ -59,7 +59,7 @@ test('login, cookie, barreira, /api/eu e logout', async (t) => {
   assert.doesNotMatch(sc, /Secure/);
   const cookie = sc.split(';')[0];
 
-  assert.deepEqual(await (await fetch(`${s.base}/api/eu`, { headers: { cookie } })).json(), { logado: true });
+  assert.deepEqual(await (await fetch(`${s.base}/api/eu`, { headers: { cookie } })).json(), { logado: true, admin: true, usuario: 'admin', nome: 'Admin', permissoes: null });
   assert.equal((await fetch(`${s.base}/api/qualquer`, { headers: { cookie } })).status, 404);
   const salvos = JSON.parse(fs.readFileSync(path.join(s.cfg.dados, 'logins.json'), 'utf8'));
   assert.deepEqual(salvos, [cookie.slice('coreos='.length)]);
@@ -77,7 +77,7 @@ test('tokens persistem entre reinícios e só os 50 mais recentes ficam', async 
   fs.writeFileSync(path.join(cfg.dados, 'logins.json'), JSON.stringify(antigos));
   const s = await subir(cfg);
   t.after(() => s.fechar());
-  assert.deepEqual(await (await fetch(`${s.base}/api/eu`, { headers: { cookie: `coreos=${antigos[59]}` } })).json(), { logado: true });
+  assert.deepEqual(await (await fetch(`${s.base}/api/eu`, { headers: { cookie: `coreos=${antigos[59]}` } })).json(), { logado: true, admin: true, usuario: 'admin', nome: 'Admin', permissoes: null });
   const cookie = await entrar(s.base);
   const salvos = JSON.parse(fs.readFileSync(path.join(cfg.dados, 'logins.json'), 'utf8'));
   assert.equal(salvos.length, 50);

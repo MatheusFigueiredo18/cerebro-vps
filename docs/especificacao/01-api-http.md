@@ -34,15 +34,27 @@ Ordem de avaliação:
 
 1. Rotas livres: `POST /api/login`, `POST /api/logout`, `GET /api/eu`, `POST /api/ponte/whatsapp` (esta tem token próprio).
 2. Qualquer outra rota sob `/api` exige cookie `coreos` com token válido. Sem ele: `401` com `erro` pedindo login.
-3. O WebSocket `/ws` também exige o cookie (ver 02).
+3. Cada rota pertence a uma seção (`servidor/acessos.js`, `secaoDaRota`). O admin passa em tudo; outra pessoa precisa da seção com nível `ver` (GET e HEAD) ou `editar` (qualquer método). Sem a permissão: `403 { erro }`. Rotas de Conversas, de usuários, da geração de vídeo, dos números autorizados do WhatsApp e qualquer rota sem seção definida são só do admin. `/api/arquivo`, `/api/capa` e `/api/enviar` fora de `conteudo/` exigem a seção Arquivos; dentro de `conteudo/` também servem Conteúdos, Quadro ou Vídeo.
+4. O WebSocket `/ws` exige cookie do admin (ver 02).
 
 ## 3. Rotas de sessão
 
 | Método e caminho | Entrada | Sucesso | Erros |
 |---|---|---|---|
-| `POST /api/login` | `{ "senha": string }` | `200 { "ok": true }` e `Set-Cookie` | `401 { erro }` senha errada; `429 { erro }` limite |
+| `POST /api/login` | `{ "usuario"?: string, "senha": string }`. Sem usuário ou com `admin`, confere a senha do `.env` | `200 { "ok": true }` e `Set-Cookie` | `401 { erro }` usuário ou senha errados (pessoa suspensa também); `429 { erro }` limite |
 | `POST /api/logout` | nada | `200 { "ok": true }`, cookie apagado (validade zero); o token sai da lista e a lista é regravada | nunca falha |
-| `GET /api/eu` | nada | `200 { "logado": boolean }` | nunca falha. É também a rota de saúde usada pelo instalador |
+| `GET /api/eu` | nada | `200 { "logado": false }` ou `{ "logado": true, admin, usuario, nome, permissoes }` (`permissoes` é `null` para o admin) | nunca falha. É também a rota de saúde usada pelo instalador |
+
+### 3.1 Pessoas (só admin)
+
+| Método e caminho | Entrada | Sucesso | Erros |
+|---|---|---|---|
+| `GET /api/usuarios` | nada | lista `{ id, usuario, nome, ativo, permissoes }` (a senha nunca sai) | |
+| `POST /api/usuarios` | `{ usuario, nome?, senha, permissoes }` | a pessoa criada | `400 { erro }` usuário inválido, repetido ou `admin`; senha com menos de 8 caracteres |
+| `PUT /api/usuarios/:id` | qualquer um de `{ nome, senha, ativo, permissoes }` | a pessoa atualizada. Senha nova ou `ativo: false` derrubam as sessões abertas dela | `404`, `400` |
+| `DELETE /api/usuarios/:id` | nada | `{ ok: true }` e as sessões dela caem | `404` |
+
+`permissoes` é `{ secao: 'ver' | 'editar' }` com as seções `grafo`, `arquivos`, `conteudos`, `whatsapp`, `n8n`, `lousa` e `video`; seção ausente é sem acesso. As pessoas ficam em `usuarios.json` na pasta de dados, com a senha guardada como resumo scrypt.
 
 ## 4. Proteção de caminhos
 
