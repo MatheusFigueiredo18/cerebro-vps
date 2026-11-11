@@ -1,5 +1,6 @@
 // Trilho vertical à esquerda: Grafo, as Funções, o botão Cérebro (arquivos) e, abaixo de um traço, as páginas abertas.
 // O quadrado azul desliza até a guia escolhida, toca um clique curto e o conteúdo entra em cascata (ver .entra no CSS).
+// Só aparece o que o perfil pode ver (ver perfil.js).
 import { $, el, icone, ouvir, emitir } from './comum.js';
 import { FUNCOES, abrirFuncao } from './lateral.js';
 import * as shell from './shell.js';
@@ -7,7 +8,6 @@ import { perfil, nivel, secaoDe, iniciais } from './perfil.js';
 
 let caixa = null;
 let indicador = null;
-let janelaAberta = false; // a janela de Conteúdos não é uma guia: o botão acende enquanto ela está aberta
 
 // Clique de troca de aba: dois estalos curtos (apertar e soltar), feitos na hora com Web Audio, sem arquivo de som.
 let audio = null;
@@ -40,10 +40,7 @@ function pintar() {
   const ids = new Set(FUNCOES.map((f) => f.id));
   const itens = [el('div', { class: 'dock-marca', 'aria-hidden': 'true' }, icone('cerebro'))];
   if (nivel('grafo')) itens.push(botao('Grafo', 'grafo', ativa?.id === 'grafo', () => shell.ir('grafo')));
-  for (const f of FUNCOES.filter((x) => nivel(secaoDe(x.id)))) {
-    const conteudos = f.id === 'conteudos';
-    itens.push(botao(f.nome, f.icone, conteudos ? janelaAberta : ativa?.tipo === f.id, () => abrirFuncao(f.id), { alterna: conteudos }));
-  }
+  for (const f of FUNCOES.filter((x) => nivel(secaoDe(x.id)))) itens.push(botao(f.nome, f.icone, ativa?.tipo === f.id, () => abrirFuncao(f.id)));
   if (nivel('arquivos')) itens.push(botao('Cérebro', 'cerebro', !document.body.classList.contains('sem-lateral'), () => emitir('lateral-alternar'), { alterna: true, dica: 'Arquivos do cérebro' }));
   const paginas = shell.guias().filter((g) => g.id !== 'grafo' && g.tipo !== 'perfil' && !ids.has(g.tipo));
   if (paginas.length) {
@@ -74,7 +71,6 @@ export function iniciar() {
   ouvir('guia-ativa', pintar);
   ouvir('guias-mudou', pintar);
   ouvir('lateral-mudou', pintar);
-  ouvir('conteudos-janela', (d) => { janelaAberta = !!d?.aberta; pintar(); });
   addEventListener('resize', pintar);
   pintar();
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { criarVideos } from '../servidor/videos.js';
-import { criarGeracao, montarPedido } from '../servidor/geracao.js';
+import { criarGeracao, montarPedido, listarSkills } from '../servidor/geracao.js';
 import { escrever, ate, cfgTeste, subir, entrar, json } from './ajuda.js';
 
 function montar() {
@@ -40,6 +40,7 @@ test('geração: Gerar roda o Claude com mídias e prompt, um por vez, e o víde
   assert.ok(chamadas[0].texto.includes(`Conteúdo principal (todo o contexto do vídeo): ${path.join(cfg.vault, 'conteudo', 'bruto.mp4')}`));
   assert.match(chamadas[0].texto, /legenda amarela/);
   assert.match(chamadas[0].prompt, /Remotion/);
+  assert.match(chamadas[0].prompt, /skills\/edicao-video\/SKILL\.md/);
   assert.throws(() => ger.gerar(videos.criar({}).id, { pedido: 'outro' }), (e) => e.code === 'CONFLITO');
 
   terminar();
@@ -93,4 +94,48 @@ test('rotas de geração: exigem login, geram e devolvem o estado', async (t) =>
   const e = await ate(async () => { const x = await (await fetch(`${s.base}/api/video/${id}/geracao`, { headers: { cookie } })).json(); return x.estado !== 'gerando' && x; });
   assert.equal(e.chat.at(-1).texto, `ok ${id}`);
   assert.equal((await fetch(`${s.base}/api/video/${id}/gerar`, json(cookie, { principal: '../fora.mp4' }))).status, 400);
+});
+
+test('geração: música e efeito sonoro vão no pedido; áudio fora do cérebro, que não é áudio ou de tipo desconhecido é recusado', async () => {
+  const { cfg, videos, ger, chamadas, terminar } = montar();
+  escrever(cfg.vault, 'conteudo/trilha.mp3', 'x');
+  escrever(cfg.vault, 'conteudo/whoosh.wav', 'x');
+  const s = videos.criar({});
+  for (const ruim of [{ tipo: 'musica', caminho: 'conteudo/bruto.mp4' }, { tipo: 'musica', caminho: '../../x.mp3' }, { tipo: 'voz', caminho: 'conteudo/trilha.mp3' }, null]) {
+    assert.throws(() => ger.gerar(s.id, { audios: [ruim] }), /inválido/);
+  }
+  ger.gerar(s.id, { audios: [{ tipo: 'musica', caminho: 'conteudo/trilha.mp3' }, { tipo: 'efeito', caminho: 'conteudo/whoosh.wav' }] });
+  assert.ok(chamadas[0].texto.includes(`Música (fundo): ${path.join(cfg.vault, 'conteudo', 'trilha.mp3')}`));
+  assert.ok(chamadas[0].texto.includes(`Efeito sonoro: ${path.join(cfg.vault, 'conteudo', 'whoosh.wav')}`));
+  assert.match(chamadas[0].prompt, /loudnorm/);
+  terminar();
+  await ate(() => ger.estado(s.id).estado === 'pronto');
+});
+
+test('geração: Modelo base vai no pedido com o que extrair; habilidades escolhidas trocam as skills do prompt', async () => {
+  const { cfg, videos, ger, chamadas, terminar } = montar();
+  escrever(cfg.vault, 'conteudo/modelo.mp4', 'x');
+  escrever(cfg.vault, '.claude/skills/carrossel/SKILL.md', `---
+name: carrossel
+description: "Faz carrossel"
+---
+`);
+  escrever(cfg.vault, '.claude/skills/edicao-video/SKILL.md', `---
+name: edicao-video
+description: "Edita"
+---
+`);
+  const s = videos.criar({});
+  for (const ruim of [{ modelos: [{ caminho: 'conteudo/modelo.mp4', extrair: ['nada'] }] }, { modelos: [{ caminho: '../x.mp4' }] },
+    { principal: 'conteudo/bruto.mp4', habilidades: ['nao-existe'] }, { principal: 'conteudo/bruto.mp4', habilidades: ['../../etc'] }, { principal: 'conteudo/bruto.mp4', habilidades: 'carrossel' }]) {
+    assert.throws(() => ger.gerar(s.id, ruim), /inválido/);
+  }
+  ger.gerar(s.id, { modelos: [{ caminho: 'conteudo/modelo.mp4', extrair: ['texto', 'animacao'] }], habilidades: ['carrossel'] });
+  assert.ok(chamadas[0].texto.includes(`Modelo base (copie dele só o que está marcado, o conteúdo continua sendo o principal): ${path.join(cfg.vault, 'conteudo', 'modelo.mp4')}`));
+  assert.match(chamadas[0].texto, /Extrair: estilo de texto .*; animações/);
+  assert.match(chamadas[0].prompt, /skills\/carrossel\/SKILL\.md/);
+  assert.doesNotMatch(chamadas[0].prompt, /edicao-video/);
+  terminar();
+  await ate(() => ger.estado(s.id).estado === 'pronto');
+  assert.deepEqual(listarSkills(cfg.vault).map((k) => [k.nome, k.descricao, k.padrao]), [['carrossel', 'Faz carrossel', false], ['edicao-video', 'Edita', true]]);
 });

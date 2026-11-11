@@ -1,10 +1,14 @@
 // Função Lousas: quadro infinito de desenho livre, post-its, formas e setas, com salvamento automático no servidor.
 // A geometria (seleção, formas, borrachas, transformações) fica em lousa-geo.js e a câmera em camera.js; aqui ficam a tela,
 // o teclado e a conversa com a API (/api/lousas). Cada lousa é um arquivo JSON na pasta de dados; nada é apagado.
-import { el, icone, api, ler, guardar, avisar, ouvir } from './comum.js';
-import { zoomEm, enquadrar, pinca } from './camera.js';
+// Imagens e vídeos de Conteúdos entram como objeto 'midia' (o "+" abre a galeria; arraste para o quadro). O vídeo aparece pela capa.
+import { el, icone, api, ler, guardar, avisar, ouvir, emitir } from './comum.js';
+import { abrirJanela } from './conteudos.js';
+import { caminhosDoArrasto, arrastoTemArquivos } from './anexos.js';
 import { enviarArquivos } from './envio.js';
+import { tipoArquivo } from './formatos.js';
 import { urlArquivo } from './markdown.js';
+import { zoomEm, enquadrar, pinca } from './camera.js';
 import * as G from './lousa-geo.js';
 import * as shell from './shell.js';
 
@@ -187,9 +191,9 @@ function montar(corpo) {
     else c.rect(0, 0, w, h);
   }
   const imagens = new Map(); // caminho no cérebro -> <img>; ao terminar de carregar, redesenha
-  function imagemDe(src) {
-    let im = imagens.get(src);
-    if (!im) { im = new Image(); im.onload = () => redesenhar(); im.onerror = () => { im.falhou = true; redesenhar(); }; im.src = urlArquivo(src); imagens.set(src, im); }
+  function imagemDe(src, url = urlArquivo(src)) {
+    let im = imagens.get(url);
+    if (!im) { im = new Image(); im.onload = () => redesenhar(); im.onerror = () => { im.falhou = true; redesenhar(); }; im.src = url; imagens.set(url, im); }
     return im;
   }
   function objeto(c, o, z, pid, semTexto) {
@@ -209,6 +213,7 @@ function montar(corpo) {
         if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, o.w, o.h);
         else { c.fillStyle = TH.grade; c.fillRect(0, 0, o.w, o.h); c.font = `${14 / z}px system-ui, sans-serif`; c.fillStyle = TH.mudo; c.textBaseline = 'middle'; c.textAlign = 'center'; c.fillText(im.falhou ? 'Imagem não encontrada' : 'Carregando imagem…', o.w / 2, o.h / 2); }
       }
+      else if (o.t === 'midia') desenharMidia(c, o, z);
       else if (o.t === 'frame') {
         c.fillStyle = TH.quadro; c.fillRect(0, 0, o.w, o.h); c.strokeStyle = TH.grade; c.lineWidth = 1 / z; c.strokeRect(0, 0, o.w, o.h);
         if (!semTexto) { c.font = `${14 / z}px system-ui, sans-serif`; c.fillStyle = TH.mudo; c.textBaseline = 'bottom'; c.textAlign = 'left'; c.fillText(o.title || 'Moldura', 0, -6 / z); }
@@ -230,6 +235,38 @@ function montar(corpo) {
     if (f.caixas) { const lado = 14 * z; const x0 = k.x + 20 * z; if (lado >= 5 && x0 + lado > 0 && x0 < w) repetir(f.linhas, k.y, h, (y) => { c.strokeRect(Math.round(x0) + 0.5, Math.round(y - lado - 6 * z) + 0.5, Math.round(lado), Math.round(lado)); }); }
     if (f.pauta) { const passo = 10 * z; if (passo >= 2.5) repetir(130, k.y - 130 * z, h, (y) => { for (let i = 0; i < 5; i++) linhaH(Math.round(y + i * passo) + 0.5); }); }
     c.restore();
+  }
+  // imagens e vídeos de Conteúdos (objeto midia): o vídeo aparece pela capa
+  const midiaDe = (o) => imagemDe(o.src, o.v ? `/api/capa?caminho=${encodeURIComponent(o.src)}` : undefined);
+  function desenharMidia(c, o, z) {
+    const im = midiaDe(o);
+    if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, o.w, o.h);
+    else {
+      c.fillStyle = TH.grade; c.fillRect(0, 0, o.w, o.h);
+      c.fillStyle = TH.mudo; c.font = `${13 / Math.max(z, 0.3)}px system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(im.falhou ? 'Arquivo não encontrado' : 'Carregando…', o.w / 2, o.h / 2);
+    }
+    if (o.v) { // selo de play no meio: dois cliques abrem o vídeo no visor
+      const r = Math.min(28, o.w / 6, o.h / 6); c.fillStyle = 'rgba(0,0,0,.55)'; c.beginPath(); c.arc(o.w / 2, o.h / 2, r, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.moveTo(o.w / 2 - r * 0.35, o.h / 2 - r * 0.5); c.lineTo(o.w / 2 + r * 0.55, o.h / 2); c.lineTo(o.w / 2 - r * 0.35, o.h / 2 + r * 0.5); c.closePath(); c.fill();
+    }
+  }
+  // põe imagens e vídeos do cérebro no quadro, a partir do ponto (local da tela), já no tamanho certo
+  async function adicionarMidias(caminhos, sx, sy) {
+    const midias = caminhos.filter((c) => ['imagem', 'video'].includes(tipoArquivo(c)));
+    if (caminhos.length > midias.length) avisar('Só imagem ou vídeo entra no quadro; os outros arquivos foram ignorados.');
+    if (!cur || !midias.length) return;
+    const w0 = paraMundo(sx, sy); const novos = [];
+    for (const [i, src] of midias.entries()) {
+      const o = { id: uid(), t: 'midia', src, v: tipoArquivo(src) === 'video', x: 0, y: 0, w: 320, h: 180, r: 0 };
+      const im = midiaDe(o);
+      await new Promise((ok) => { if (im.complete) ok(); else { im.addEventListener('load', ok, { once: true }); im.addEventListener('error', ok, { once: true }); } });
+      if (im.naturalWidth) { const k = Math.min(1, 360 / Math.max(im.naturalWidth, im.naturalHeight)) / cam.z; o.w = Math.round(im.naturalWidth * k); o.h = Math.round(im.naturalHeight * k); }
+      else { o.w /= cam.z; o.h /= cam.z; }
+      o.x = w0[0] - o.w / 2 + (i * 24) / cam.z; o.y = w0[1] - o.h / 2 + (i * 24) / cam.z;
+      novos.push(o);
+    }
+    objs.push(...novos); escolherFerr('select'); S.sel = novos.map((o) => o.id); foto(); pintarCtx(); redesenhar();
   }
   const redesenhar = () => { if (!quadro) quadro = requestAnimationFrame(desenhar); };
   function desenhar() {
@@ -388,9 +425,26 @@ function montar(corpo) {
   titulo.addEventListener('input', () => { if (cur) { cur.titulo = titulo.value; const it = lista.find((l) => l.id === cur.id); if (it) it.titulo = titulo.value; salvarSoon(); } });
   titulo.addEventListener('keydown', (e) => { if (e.key === 'Enter') titulo.blur(); e.stopPropagation(); });
 
+  // ---------- soltar imagens e vídeos (da janela de Conteúdos ou do computador) ----------
+  palco.addEventListener('dragover', (e) => {
+    if (!cur || !arrastoTemArquivos(e.dataTransfer)) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; palco.classList.add('alvo-solta');
+  });
+  palco.addEventListener('dragleave', (e) => { if (!palco.contains(e.relatedTarget)) palco.classList.remove('alvo-solta'); });
+  palco.addEventListener('drop', async (e) => {
+    if (!cur || !arrastoTemArquivos(e.dataTransfer)) return;
+    e.preventDefault(); palco.classList.remove('alvo-solta'); document.body.classList.remove('arrastando-arquivo');
+    const caminhos = caminhosDoArrasto(e.dataTransfer);
+    const arquivos = caminhos.length ? [] : [...(e.dataTransfer.files ?? [])]; // ler antes de qualquer await
+    const [sx, sy] = ptr(e);
+    try { if (arquivos.length) caminhos.push(...await enviarArquivos(arquivos)); } catch (err) { avisar(err.message, 'erro'); return; }
+    adicionarMidias(caminhos, sx, sy);
+  });
+
   // ---------- barra de ferramentas ----------
   function montarBarra() {
-    barra.replaceChildren(...FERRAMENTAS.map((f) => (f === '-' ? el('div', { class: 'lousa-sep' }) : el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], 'aria-pressed': 'false', dados: { f: f[0] },
+    const mais = bt('lousa-bt', 'Adicionar imagem ou vídeo (abre Conteúdos)', 'mais', () => { abrirJanela(); avisar('Arraste uma imagem ou um vídeo de Conteúdos para o quadro.'); });
+    barra.replaceChildren(mais, el('div', { class: 'lousa-sep' }), ...FERRAMENTAS.map((f) => (f === '-' ? el('div', { class: 'lousa-sep' }) : el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], 'aria-pressed': 'false', dados: { f: f[0] },
       onclick: () => escolherFerr(f[0] === 'formas' ? S.ultimaForma ?? 'rect' : f[0] === 'linhas' ? S.ultimaLinha ?? 'arrow' : f[0]) }, icone(f[1])))));
     for (const [gav, itens] of [[gavetaFormas, FORMAS], [gavetaLinhas, LINHAS]]) gav.replaceChildren(...itens.map((f) => el('button', { type: 'button', class: 'lousa-bt', title: f[2], 'aria-label': f[2], dados: { f: f[0] }, onclick: () => escolherFerr(f[0]) }, icone(f[1]))));
     btnGrade.classList.toggle('ligado', S.fundoInicial !== 'liso'); btnMini.classList.toggle('ligado', S.mini); mini.style.display = S.mini ? 'block' : 'none';
@@ -442,7 +496,7 @@ function montar(corpo) {
 
   // ---------- edição de texto ----------
   function iniciarEdicao(o) {
-    if (!o || o.lock || o.t === 'image') return; if (editando) fimEdicao(); editando = o; S.sel = [o.id];
+    if (!o || o.lock || o.t === 'image' || o.t === 'midia') return; if (editando) fimEdicao(); editando = o; S.sel = [o.id];
     const chave = o.t === 'frame' ? 'title' : 'text'; const sp = paraTela(o.x, o.y); const z = cam.z;
     editor.hidden = false; editor.value = o[chave] || ''; editor.removeAttribute('style');
     Object.assign(editor.style, { left: `${sp[0]}px`, top: `${sp[1]}px`, width: `${Math.max(60, o.w * z)}px`, height: `${Math.max(24, o.h * z)}px`, fontSize: `${(o.t === 'sticky' ? fsPostit(g, o) : (o.fs || 16)) * z}px`,
@@ -543,7 +597,7 @@ function montar(corpo) {
     if (a.tipo === 'redim') {
       const b = a.caixa; const i = a.al; const ox = i === 0 || i === 3 ? b.x + b.w : b.x; const oy = i === 0 || i === 1 ? b.y + b.h : b.y; const hx = i === 0 || i === 3 ? b.x : b.x + b.w; const hy = i === 0 || i === 1 ? b.y : b.y + b.h;
       let sx = Math.max(0.05, (w[0] - ox) / (hx - ox || 1)); let sy = Math.max(0.05, (w[1] - oy) / (hy - oy || 1));
-      if (e.shiftKey || a.snap.some(([o]) => o.t === 'stroke' || o.t === 'line' || o.t === 'sticky' || o.t === 'image')) sx = sy = Math.max(sx, sy);
+      if (e.shiftKey || a.snap.some(([o]) => o.t === 'stroke' || o.t === 'line' || o.t === 'sticky' || o.t === 'image' || o.t === 'midia')) sx = sy = Math.max(sx, sy);
       for (const [o, s] of a.snap) Object.assign(o, G.escalado(s, ox, oy, sx, sy, pid)); redesenhar(); return;
     }
     if (a.tipo === 'girar') { const b = a.caixa; const cx = b.x + b.w / 2; const cy = b.y + b.h / 2; let da = Math.atan2(w[1] - cy, w[0] - cx) - a.a0; if (e.shiftKey) da = Math.round(da / (Math.PI / 12)) * (Math.PI / 12); for (const [o, s] of a.snap) Object.assign(o, G.girado(s, cx, cy, da, pid)); redesenhar(); return; }
@@ -582,6 +636,7 @@ function montar(corpo) {
   tela.addEventListener('pointercancel', (e) => { clearTimeout(segurar); pontos.delete(e.pointerId); if (arrasto?.tipo === 'pinca') arrasto = null; else if (arrasto?.tipo === 'desenhar') { vivo = null; arrasto = null; redesenhar(); } });
   function duploToque(p) {
     if (!cur || S.ferr !== 'select') return; const w = paraMundo(p[0], p[1]); const o = G.escolher(objs, w[0], w[1], tol());
+    if (o?.t === 'midia') { emitir('visor', { lista: [o.src], inicio: o.src }); return; }
     if (o && G.ehCaixa(o)) iniciarEdicao(o); else if (!o) { const t = novoTexto(w[0], w[1]); objs.push(t); S.sel = [t.id]; iniciarEdicao(t); }
   }
   tela.addEventListener('dblclick', (e) => duploToque(ptr(e)));
@@ -695,7 +750,7 @@ function montar(corpo) {
       const tx = l.filter((o) => o.fs);
       if (tx.length) { const alt = (d) => { for (const o of tx) { o.fs = Math.max(8, Math.min(120, o.fs + d)); if (o.t === 'text') o.h = o.fs * 1.25 * G.linhasDoTexto(o); } foto(); redesenhar(); }; f.push(bt('lousa-bt', 'Letra menor', 'menos', () => alt(-2)), bt('lousa-bt', 'Letra maior', 'mais', () => alt(2))); }
       if (l.length === 1 && l[0].t === 'line') f.push(bt('lousa-bt', l[0].k === 'arrow' ? 'Trocar por linha' : 'Trocar por seta', l[0].k === 'arrow' ? 'linha' : 'setaDiag', () => { l[0].k = l[0].k === 'arrow' ? 'line' : 'arrow'; foto(); pintarCtx(); redesenhar(); }));
-      if (l.length === 1 && G.ehCaixa(l[0]) && l[0].t !== 'image') f.push(bt('lousa-bt', 'Editar texto (Enter)', 'texto', () => iniciarEdicao(l[0])));
+      if (l.length === 1 && G.ehCaixa(l[0]) && !['image', 'midia'].includes(l[0].t)) f.push(bt('lousa-bt', 'Editar texto (Enter)', 'texto', () => iniciarEdicao(l[0])));
       f.push(el('span', { class: 'lousa-sep-v' }), bt('lousa-bt', 'Duplicar (Ctrl+D)', 'copiar', duplicarSel), bt('lousa-bt', 'Trazer para a frente (PgUp)', 'frente', () => camada(1)), bt('lousa-bt', 'Enviar para trás (PgDn)', 'tras', () => camada(-1)));
     }
     if (l.length > 1 || l[0].g) { const agrupado = l.every((o) => o.g); f.push(bt('lousa-bt', agrupado ? 'Desagrupar (Ctrl+Shift+G)' : 'Agrupar (Ctrl+G)', 'agrupar', alternarGrupo)); }

@@ -2,16 +2,14 @@
 import { $, el, api, icone, botaoIcone, ler, guardar, ouvir, emitir, avisar } from './comum.js';
 import { ordenarNos, guiaDeArquivo, ehMidia, midiasIrmas, pastaDe, nomeBase } from './formatos.js';
 import * as shell from './shell.js';
-import { nivel, secaoDe } from './perfil.js';
 
 const ORDENS = [['nome', 'Nome (A a Z)'], ['nome-desc', 'Nome (Z a A)'], ['recentes', 'Mais recentes']];
 export const FUNCOES = [
   { id: 'conversas', nome: 'Conversas', icone: 'conversa', faz: 'Agentes de IA trabalhando no cérebro' },
-  { id: 'conteudos', nome: 'Conteúdos', icone: 'conteudos', faz: 'Galeria do que foi gerado e enviado' },
   { id: 'whatsapp', nome: 'WhatsApp', icone: 'whatsapp', faz: 'Conexão, motor e quem pode dar ordens' },
   { id: 'n8n', nome: 'n8n', icone: 'n8n', faz: 'Automações do servidor' },
   { id: 'lousa', nome: 'Quadro', icone: 'lousa', faz: 'Desenho livre, post-its e formas num quadro infinito' },
-  { id: 'video', nome: 'Criação de vídeo', icone: 'filme', faz: 'Nós ligados que viram vídeo' },
+  { id: 'video', nome: 'Criação', icone: 'filme', faz: 'Nós ligados que viram vídeo' },
 ];
 
 let dados = []; // árvore como veio do servidor
@@ -40,15 +38,6 @@ function acharNo(caminho, nos = dados) {
 export function abrirFuncao(id) {
   const f = FUNCOES.find((x) => x.id === id);
   if (!f) return;
-  if (id === 'conteudos') {
-    // Conteúdos é uma janela flutuante sobre a área de trabalho das conversas (para arrastar arquivos para lá)
-    if (!['conversas', 'video', 'lousa'].includes(shell.ativa()?.tipo)) { // a galeria também flutua sobre a Criação de vídeo e as Lousas
-      const casa = ['conversas', 'lousa', 'video'].find((t) => nivel(secaoDe(t)));
-      if (casa) shell.abrir({ id: `f:${casa}`, tipo: casa, titulo: FUNCOES.find((x) => x.id === casa).nome });
-    }
-    emitir('conteudos-alternar');
-    return;
-  }
   shell.abrir({ id: `f:${f.id}`, tipo: f.id, titulo: f.nome });
 }
 

@@ -6,7 +6,7 @@
   "description": "Painel web para um segundo cérebro em arquivos Markdown, rodando numa VPS.",
   "scripts": {
     "start": "node servidor/index.js",
-    "test": "node --test"
+    "test": "node --test teste/*.test.js"
   },
   "engines": {
     "node": ">=20"

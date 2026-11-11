@@ -4,3 +4,6 @@ node_modules/
 dist/
 .superpowers/
 data/
+
+# repositorios de motion graphics de referencia (clones de terceiros, fora do git do painel)
+motion-graphics-repos/

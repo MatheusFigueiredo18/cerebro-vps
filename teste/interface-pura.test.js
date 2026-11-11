@@ -259,3 +259,58 @@ test('raioDe cresce com as ligações e pasta é maior', () => {
   assert.ok(raioDe('nota', 5) > raioDe('nota', 0));
   assert.ok(raioDe('pasta', 2) > raioDe('nota', 2));
 });
+
+// ---------- Criação de vídeo: entradas do Gerar vídeo ----------
+import { entradasDe, ligadoEm, clonar, nosNaArea, ehAudio } from '../cliente/video-grafo.js';
+
+test('video-grafo: sobe por Prompt e Claude até as mídias e pré-escreve o prompt sobre a mídia', () => {
+  const no = (id, tipo, dados = {}) => ({ id, tipo, dados });
+  const grafo = {
+    nos: [no('p', 'principal', { caminho: 'conteudo/a.mp4' }), no('r', 'referencia', { caminho: 'conteudo/b.png' }),
+      no('t', 'prompt', { texto: ' legenda grande ' }), no('c', 'claude'), no('g', 'remotion'), no('v', 'saida'), no('solto', 'prompt', { texto: 'fora' })],
+    links: [{ a: 'p', b: 't' }, { a: 't', b: 'c' }, { a: 'c', b: 'g' }, { a: 'r', b: 'g' }, { a: 'g', b: 'v' }],
+  };
+  assert.deepEqual(entradasDe(grafo, 'g'), { principal: 'conteudo/a.mp4', referencias: ['conteudo/b.png'], modelos: [], audios: [], prompts: ['Sobre a.mp4: legenda grande'] });
+  assert.equal(ligadoEm(grafo, 'g', 'saida')?.id, 'v');
+  assert.equal(ligadoEm(grafo, 'c', 'remotion')?.id, 'g');
+  assert.equal(ligadoEm(grafo, 'solto', 'remotion'), null);
+  // ciclo não trava
+  grafo.links.push({ a: 'c', b: 'c' });
+  assert.equal(entradasDe(grafo, 'g').principal, 'conteudo/a.mp4');
+});
+
+test('video-grafo: itens dentro da Lista viram referências; Música e Efeito sonoro viram áudios', () => {
+  const no = (id, tipo, dados = {}) => ({ id, tipo, dados });
+  const grafo = {
+    nos: [no('l', 'lista', { itens: [{ tipo: 'referencia', caminho: 'c/1.png' }, { tipo: 'referencia', caminho: 'c/2.mp4' }] }),
+      no('m', 'musica', { caminho: 'c/trilha.mp3' }), no('e', 'efeito', { caminho: 'c/pop.wav' }), no('vazio', 'efeito'), no('g', 'remotion')],
+    links: [{ a: 'l', b: 'g' }, { a: 'm', b: 'g' }, { a: 'e', b: 'g' }, { a: 'vazio', b: 'g' }],
+  };
+  const r = entradasDe(grafo, 'g');
+  assert.deepEqual(r.referencias, ['c/1.png', 'c/2.mp4']);
+  assert.deepEqual(r.audios, [{ tipo: 'musica', caminho: 'c/trilha.mp3' }, { tipo: 'efeito', caminho: 'c/pop.wav' }]);
+  assert.ok(ehAudio('a/B.MP3') && !ehAudio('a/b.mp4'));
+});
+
+test('video-grafo: Modelo base vai com o que extrair, mesmo passando por Lista; sem vídeo não entra', () => {
+  const no = (id, tipo, dados = {}) => ({ id, tipo, dados });
+  const grafo = {
+    nos: [no('m', 'modelo', { caminho: 'c/modelo.mp4', extrair: ['texto', 'fundo'] }), no('m2', 'modelo', { extrair: ['texto'] }), no('l', 'lista'), no('g', 'remotion')],
+    links: [{ a: 'm', b: 'l' }, { a: 'l', b: 'g' }, { a: 'm2', b: 'g' }],
+  };
+  const r = entradasDe(grafo, 'g');
+  assert.deepEqual(r.modelos, [{ caminho: 'c/modelo.mp4', extrair: ['texto', 'fundo'] }]);
+  assert.deepEqual(r.referencias, []);
+});
+
+test('video-grafo: clonar troca ids, desloca e só leva as ligações internas; nosNaArea pega quem cruza o retângulo', () => {
+  let i = 0;
+  const nos = [{ id: 'a', x: 0, y: 0, w: 100, h: 100, dados: { texto: 'x' } }, { id: 'b', x: 200, y: 0, w: 100, h: 100, dados: {} }];
+  const c = clonar(nos, [{ a: 'a', b: 'b' }, { a: 'a', b: 'fora' }], 30, 40, () => `n${++i}`);
+  assert.deepEqual(c.nos.map((n) => [n.id, n.x, n.y]), [['n1', 30, 40], ['n2', 230, 40]]);
+  assert.deepEqual(c.links, [{ a: 'n1', b: 'n2' }]);
+  c.nos[0].dados.texto = 'mudou';
+  assert.equal(nos[0].dados.texto, 'x'); // cópia funda
+  assert.deepEqual(nosNaArea(nos, { x: 90, y: 50, w: 20, h: 10 }), ['a']);
+  assert.deepEqual(nosNaArea(nos, { x: -10, y: -10, w: 400, h: 20 }), ['a', 'b']);
+});
