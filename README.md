@@ -28,7 +28,7 @@ mkdir -p /tmp/cerebro-teste /tmp/dados-teste
 CORE_OS_ENV=/nao-existe CORE_OS_VAULT=/tmp/cerebro-teste CORE_OS_DATA=/tmp/dados-teste CORE_OS_PASSWORD=teste123 CORE_OS_PORT=3917 npm start
 ```
 
-Abra `http://127.0.0.1:3917` e entre com a senha. Variáveis principais: `CORE_OS_VAULT` (pasta do cérebro), `CORE_OS_DATA` (dados do painel), `CORE_OS_PASSWORD`, `CORE_OS_PORT`, `CORE_OS_HOST`, `CORE_OS_ENV` (arquivo `.env`). O resumo completo está em `docs/especificacao/07-configuracao-e-dados.md`.
+Abra `http://127.0.0.1:3917` e entre com o usuário `admin` e a senha. No perfil (avatar no pé da barra da esquerda) o admin cria as outras pessoas e escolhe, por seção, se cada uma não acessa, só vê ou edita. Variáveis principais: `CORE_OS_VAULT` (pasta do cérebro), `CORE_OS_DATA` (dados do painel), `CORE_OS_PASSWORD`, `CORE_OS_PORT`, `CORE_OS_HOST`, `CORE_OS_ENV` (arquivo `.env`). O resumo completo está em `docs/especificacao/07-configuracao-e-dados.md`.
 
 O terminal das conversas usa `node-pty` (instalado como opcional). Sem ele, o painel cai num terminal simples por pipes.
 

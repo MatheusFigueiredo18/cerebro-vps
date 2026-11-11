@@ -13,6 +13,7 @@ import { criarEvolution } from './evolution.js';
 import { MOTORES, localizar, lerPreferencias, gravarPreferencias } from './motores.js';
 import { extras, PRIMEIROS_TESTES } from './catalogo.js';
 import { criarAuth, lerCookie, iguaisSeguro } from './auth.js';
+import { criarUsuarios, pode } from './acessos.js';
 import { resolverNoVault, arvore, listarPasta, conteudos, grafo, tipoMidia, relDe, nomeDeEnvio, pastaDeEnvio, destinoLivre, listarNivel, moverConteudo, renomearConteudo, apagarConteudo } from './arquivos.js';
 import { criarCapas } from './capas.js';
 import { criarPagina, criarPasta, lerPagina, salvarPagina, buscar } from './paginas.js';
@@ -35,8 +36,10 @@ export function criarServidor(cfg, deps = {}) {
   const log = deps.silencioso ? () => {} : (...a) => console.log(...a);
   // sem senha configurada, uma aleatória por execução: o painel nunca fica aberto
   const senhaGerada = cfg.senha ? '' : crypto.randomBytes(9).toString('base64url');
-  const auth = criarAuth({ senha: cfg.senha || senhaGerada, dados: cfg.dados, agora });
-  const logado = (req) => auth.valido(lerCookie(req.headers.cookie, COOKIE));
+  const usuarios = criarUsuarios(cfg.dados);
+  const auth = criarAuth({ senha: cfg.senha || senhaGerada, dados: cfg.dados, agora, usuarios });
+  const perfilDe = (req) => auth.perfil(lerCookie(req.headers.cookie, COOKIE));
+  const logado = (req) => perfilDe(req) !== null;
   const capa = criarCapas(cfg.dados);
   // shortcut: a marca de "enviado pelo dono" vive só em memória (aceito em 02, §7), persistir se incomodar
   const enviadosPeloDono = new Set();
@@ -66,7 +69,7 @@ export function criarServidor(cfg, deps = {}) {
   app.use('/api', (req, res, next) => (corpoProprio(req) ? next() : json1mb(req, res, next)));
 
   app.post('/api/login', (req, res) => {
-    const r = auth.entrar(req.body?.senha, req.ip);
+    const r = auth.entrar(req.body?.senha, req.ip, req.body?.usuario);
     if (r.token) res.set('Set-Cookie', cookieSessao(r.token, TRINTA_DIAS_S, req.secure));
     res.status(r.status).json(r.corpo);
   });
@@ -74,7 +77,10 @@ export function criarServidor(cfg, deps = {}) {
     auth.sair(lerCookie(req.headers.cookie, COOKIE));
     res.set('Set-Cookie', cookieSessao('', 0, req.secure)).json({ ok: true });
   });
-  app.get('/api/eu', (req, res) => res.json({ logado: logado(req) }));
+  app.get('/api/eu', (req, res) => {
+    const p = perfilDe(req);
+    res.json(p ? { logado: true, admin: p.admin, usuario: p.usuario, nome: p.nome, permissoes: p.admin ? null : p.permissoes } : { logado: false });
+  });
   app.post('/api/ponte/whatsapp', (req, res) => {
     // token vazio no painel recusa tudo: a ponte nunca fica aberta por falta de configuração
     if (!cfg.tokenPonte || !iguaisSeguro(req.headers['x-core-os-token'] ?? '', cfg.tokenPonte)) return res.status(401).json({ erro: 'token' });
@@ -83,6 +89,26 @@ export function criarServidor(cfg, deps = {}) {
   });
 
   app.use('/api', (req, res, next) => (logado(req) ? next() : res.status(401).json({ erro: 'Faça login para continuar.' })));
+  // cada rota pertence a uma seção; quem só pode ver não grava nada (ver acessos.js)
+  app.use('/api', (req, res, next) => (pode(perfilDe(req), req.method, req.path, req.query) ? next() : res.status(403).json({ erro: 'Você não tem acesso a isso. Peça ao admin.' })));
+
+  // ---------- acessos (só o admin chega aqui) ----------
+  const rotaUsuarios = (fn) => (req, res) => {
+    try { res.json(fn(req.body ?? {}, req.params.id) ?? { ok: true }); } catch (e) {
+      res.status(e.code === 'ENOENT' ? 404 : e.code === 'INVALIDO' ? 400 : 500).json({ erro: e.code ? e.message : 'Erro interno.' });
+    }
+  };
+  app.get('/api/usuarios', rotaUsuarios(() => usuarios.listar()));
+  app.post('/api/usuarios', rotaUsuarios((b) => usuarios.criar(b)));
+  app.put('/api/usuarios/:id', rotaUsuarios((b, id) => {
+    const u = usuarios.atualizar(id, b);
+    if (b.senha || b.ativo === false) auth.sairDe(id); // senha nova ou acesso suspenso: derruba as sessões abertas
+    return u;
+  }));
+  app.delete('/api/usuarios/:id', rotaUsuarios((b, id) => {
+    if (!usuarios.apagar(id)) throw Object.assign(new Error('Usuário não encontrado.'), { code: 'ENOENT' });
+    auth.sairDe(id);
+  }));
 
   // ---------- arquivos ----------
   const naoEncontrado = (res) => res.status(404).json({ erro: 'Não encontrado.' });
@@ -266,7 +292,7 @@ export function criarServidor(cfg, deps = {}) {
     let origemOk = true;
     // outro site não pode abrir o terminal usando o cookie da pessoa
     if (req.headers.origin) { try { origemOk = new URL(req.headers.origin).host === req.headers.host; } catch { origemOk = false; } }
-    if (url.pathname !== '/ws' || !logado(req) || !c || !origemOk) { socket.destroy(); return; }
+    if (url.pathname !== '/ws' || !perfilDe(req)?.admin || !c || !origemOk) { socket.destroy(); return; }
     wss.handleUpgrade(req, socket, head, (ws) => {
       conversas.conectar(ws, c, limitar(url.searchParams.get('cols'), 120, 400), limitar(url.searchParams.get('rows'), 32, 200));
     });

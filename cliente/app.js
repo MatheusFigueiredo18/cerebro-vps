@@ -14,6 +14,8 @@ import './n8n.js';
 import './video.js';
 import './previa.js';
 import './lousa.js';
+import './acessos.js';
+import { perfil, definirPerfil, nivel, secaoDe } from './perfil.js';
 
 // ---------- tema: começa pelo sistema; a escolha manual fica no navegador ----------
 const temaAtual = () => document.documentElement.dataset.tema
@@ -39,15 +41,16 @@ export async function sair() {
 function mostrarLogin() {
   $('#painel').hidden = true;
   $('#login').hidden = false;
-  $('#login-senha').focus();
+  ($('#login-usuario').value ? $('#login-senha') : $('#login-usuario')).focus();
 }
 
 let montado = false;
-function entrarNoPainel() {
+function entrarNoPainel(eu) {
   $('#login').hidden = true;
   $('#painel').hidden = false;
   if (montado) return;
   montado = true;
+  definirPerfil(eu);
   // No celular a lateral começa fechada e fica por cima do conteúdo (ver o CSS); no computador, aberta.
   const estreita = () => window.matchMedia('(max-width: 720px)').matches;
   document.body.classList.toggle('sem-lateral', ler('lateralFechada', estreita()));
@@ -65,9 +68,19 @@ function entrarNoPainel() {
       emitir('lateral-mudou');
     }
   });
-  lateral.iniciar({ alternarTema, pintarBotaoTema, sair });
+  // sem a seção Arquivos a lateral nem monta (ela lê a árvore do cérebro a cada 6 s)
+  if (nivel('arquivos')) lateral.iniciar({ alternarTema, pintarBotaoTema, sair });
+  else document.body.classList.add('sem-lateral');
   shell.iniciar();
   dock.iniciar();
+  // a guia salva no navegador pode ser de uma seção que esta pessoa não tem: abre a primeira que ela tem
+  if (!nivel(secaoDe(shell.ativa()?.tipo))) {
+    if (nivel('grafo')) shell.ir('grafo');
+    else {
+      const f = lateral.FUNCOES.find((x) => x.id !== 'conteudos' && nivel(secaoDe(x.id)));
+      shell.abrir(f ? { id: `f:${f.id}`, tipo: f.id, titulo: f.nome } : { id: 'perfil', tipo: 'perfil', titulo: 'Perfil' });
+    }
+  }
 }
 
 $('#login-form').addEventListener('submit', async (e) => {
@@ -76,9 +89,11 @@ $('#login-form').addEventListener('submit', async (e) => {
   const erro = $('#login-erro');
   erro.hidden = true;
   try {
-    await api('/api/login', { metodo: 'POST', corpo: { senha: campo.value } });
+    await api('/api/login', { metodo: 'POST', corpo: { usuario: $('#login-usuario').value, senha: campo.value } });
     campo.value = '';
-    entrarNoPainel();
+    const eu = await api('/api/eu');
+    if (montado && eu.usuario !== perfil()?.usuario) { location.reload(); return; } // outra pessoa entrou: monta tudo de novo com as permissões dela
+    entrarNoPainel(eu);
   } catch (x) {
     erro.textContent = x.message;
     erro.hidden = false;
@@ -90,6 +105,6 @@ $('#login-form').addEventListener('submit', async (e) => {
 ouvir('sessao-expirou', () => { if ($('#login').hidden) mostrarLogin(); });
 
 try {
-  const { logado } = await api('/api/eu');
-  if (logado) entrarNoPainel(); else mostrarLogin();
+  const eu = await api('/api/eu');
+  if (eu.logado) entrarNoPainel(eu); else mostrarLogin();
 } catch { mostrarLogin(); }

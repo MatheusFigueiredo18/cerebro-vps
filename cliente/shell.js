@@ -1,9 +1,10 @@
 // Moldura: uma área por guia. A navegação entre guias é o trilho vertical (dock.js).
 // O estado das guias é puro (guias.js); aqui só desenho, teclado e o ciclo de vida de cada corpo.
 import * as G from './guias.js';
+import { nivel, secaoDe } from './perfil.js';
 import { $, el, ler, guardar, emitir } from './comum.js';
 
-const ICONE = { grafo: 'grafo', pagina: 'doc', banco: 'banco', arquivo: 'doc', conversas: 'conversa', whatsapp: 'whatsapp', n8n: 'n8n', conteudos: 'conteudos', video: 'filme', lousa: 'lousa' };
+const ICONE = { perfil: 'config', grafo: 'grafo', pagina: 'doc', banco: 'banco', arquivo: 'doc', conversas: 'conversa', whatsapp: 'whatsapp', n8n: 'n8n', conteudos: 'conteudos', video: 'filme', lousa: 'lousa' };
 const tipos = new Map(); // tipo -> montar(corpo, guia) => { limpar?, podeFechar?, mostrar?, esconder? }
 const corpos = new Map(); // id -> { el, vida }
 let estado = G.restaurar(null);
@@ -33,6 +34,7 @@ function mostrar() {
     try { (visivel ? c.vida.mostrar : c.vida.esconder)?.(); } catch { /* a guia segue */ }
   }
   document.body.dataset.guia = g.tipo;
+  document.body.classList.toggle('so-ver', nivel(secaoDe(g.tipo)) === 'ver'); // só ver: as ferramentas de edição somem (o servidor recusa gravação de qualquer jeito)
 }
 
 function aplicar(novo) {
